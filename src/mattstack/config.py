@@ -22,6 +22,7 @@ class Variant(str, Enum):
 class FrontendFramework(str, Enum):
     REACT_VITE = "react-vite"
     REACT_VITE_STARTER = "react-vite-starter"
+    REACT_RSBUILD = "react-rsbuild"
     NEXTJS = "nextjs"
 
 
@@ -42,6 +43,7 @@ REPO_URLS: dict[str, str] = {
     "django-ninja": "https://github.com/mattjaikaran/django-ninja-boilerplate.git",
     "react-vite": "https://github.com/mattjaikaran/react-vite-boilerplate.git",
     "react-vite-starter": "https://github.com/mattjaikaran/react-vite-starter.git",
+    "react-rsbuild": "https://github.com/mattjaikaran/react-rsbuild-boilerplate.git",
     "nextjs": "https://github.com/mattjaikaran/nextjs-starter.git",
     "swift-ios": "https://github.com/mattjaikaran/swift-ios-starter.git",
 }

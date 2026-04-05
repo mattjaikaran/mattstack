@@ -77,6 +77,21 @@ PRESETS: dict[str, Preset] = {
         frontend_framework=FrontendFramework.REACT_VITE_STARTER,
         use_celery=False,
     ),
+    "rsbuild-fullstack": Preset(
+        name="rsbuild-fullstack",
+        description="Fullstack monorepo (Django API + React Rsbuild)",
+        project_type=ProjectType.FULLSTACK,
+        variant=Variant.STARTER,
+        frontend_framework=FrontendFramework.REACT_RSBUILD,
+    ),
+    "rsbuild-frontend": Preset(
+        name="rsbuild-frontend",
+        description="React Rsbuild SPA with TanStack Router",
+        project_type=ProjectType.FRONTEND_ONLY,
+        variant=Variant.STARTER,
+        frontend_framework=FrontendFramework.REACT_RSBUILD,
+        use_celery=False,
+    ),
     "nextjs-fullstack": Preset(
         name="nextjs-fullstack",
         description="Fullstack monorepo (Django API + Next.js App Router)",

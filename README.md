@@ -271,6 +271,8 @@ mattstack completions --show
 | `b2b-api` | backend-only | B2B backend with orgs, teams, RBAC |
 | `starter-frontend` | frontend-only | React Vite (TanStack Router) |
 | `simple-frontend` | frontend-only | React Vite (React Router, simpler) |
+| `rsbuild-fullstack` | fullstack | Django Ninja + React Rsbuild |
+| `rsbuild-frontend` | frontend-only | React Rsbuild SPA (TanStack Router) |
 | `nextjs-fullstack` | fullstack | Django Ninja + Next.js (App Router) |
 | `nextjs-frontend` | frontend-only | Next.js standalone (App Router, Tailwind) |
 
@@ -383,6 +385,7 @@ The iOS client is cloned from [swift-ios-starter](https://github.com/mattjaikara
 | `django-ninja` | [django-ninja-boilerplate](https://github.com/mattjaikaran/django-ninja-boilerplate) |
 | `react-vite` | [react-vite-boilerplate](https://github.com/mattjaikaran/react-vite-boilerplate) |
 | `react-vite-starter` | [react-vite-starter](https://github.com/mattjaikaran/react-vite-starter) |
+| `react-rsbuild` | [react-rsbuild-boilerplate](https://github.com/mattjaikaran/react-rsbuild-boilerplate) |
 | `swift-ios` | [swift-ios-starter](https://github.com/mattjaikaran/swift-ios-starter) |
 
 ## Architecture

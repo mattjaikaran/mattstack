@@ -165,6 +165,9 @@ def _run_interactive(
                 questionary.Choice(
                     "React Vite + React Router (simpler)", value="react-vite-starter"
                 ),
+                questionary.Choice(
+                    "React Rsbuild + TanStack Router (Rust-powered)", value="react-rsbuild"
+                ),
                 questionary.Choice("Next.js (App Router, TypeScript, Tailwind)", value="nextjs"),
             ],
             style=STYLE,
