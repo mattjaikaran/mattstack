@@ -40,15 +40,25 @@ mattstack init my-app --preset b2b-fullstack -o ~/projects
 | Command | Description |
 |---------|-------------|
 | `mattstack init [name]` | Create a new project from boilerplates |
+| `mattstack create [name]` | Alias for `init` |
 | `mattstack add <component>` | Add frontend/backend/ios to existing project |
 | `mattstack upgrade` | Pull latest boilerplate changes into project |
+| `mattstack generate <type>` | Scaffold models, endpoints, components, pages, hooks |
+| `mattstack db <action>` | Database management (migrate, seed, reset, status) |
+| `mattstack sync <target>` | Generate TS types, Zod schemas, API hooks from Pydantic |
 | `mattstack audit [path]` | Run static analysis on a generated project |
 | `mattstack dev` | Start all development services (docker, backend, frontend) |
 | `mattstack test` | Run tests across backend and frontend |
 | `mattstack lint` | Run linters across backend and frontend |
+| `mattstack fmt` | Format all code (lint --fix --format-check) |
+| `mattstack deps <action>` | Check outdated, update, and audit dependencies |
+| `mattstack health` | Check health of all services (Docker, DB, Redis, servers) |
+| `mattstack hooks <action>` | Install, check status, and run git hooks |
+| `mattstack workflow` | Generate CI/CD workflows (GitHub Actions, GitLab CI) |
 | `mattstack env [action]` | Manage environment variables (.env files) |
 | `mattstack doctor` | Check your development environment |
 | `mattstack info` | Show available presets and source repos |
+| `mattstack presets` | List available presets (alias for info) |
 | `mattstack context [path]` | Dump project context for AI agents |
 | `mattstack client <cmd>` | Frontend package manager wrapper (bun/npm/yarn/pnpm) |
 | `mattstack config [action]` | Manage user config (show/path/init) |
@@ -246,6 +256,91 @@ mattstack client run generate
 
 # Check which package manager
 mattstack client which
+```
+
+### `generate` Subcommands
+
+```bash
+# Django model + Pydantic schema + API router
+mattstack generate model Product --fields "title:str price:decimal description:text is_active:bool"
+
+# Django Ninja endpoint
+mattstack generate endpoint /products --method GET --auth
+
+# React component with test
+mattstack generate component ProductCard --with-test
+
+# TanStack Router page
+mattstack generate page dashboard
+
+# React hook
+mattstack generate hook useProducts
+
+# Pydantic schema only (no model)
+mattstack generate schema ProductCreate --fields "title:str price:decimal"
+```
+
+### `db` Subcommands
+
+```bash
+mattstack db migrate           # Run Django migrations
+mattstack db makemigrations    # Create migrations
+mattstack db status            # Show migration status
+mattstack db seed              # Seed from backend/seed.py
+mattstack db seed --fresh      # Flush + migrate + seed
+mattstack db reset             # Flush + migrate (interactive confirm)
+mattstack db reset --seed      # Reset and seed
+mattstack db shell             # Django dbshell
+mattstack db dump --app users  # Dump fixtures
+mattstack db load fixtures.json
+```
+
+### `sync` Subcommands
+
+```bash
+# Generate TypeScript interfaces from Pydantic models
+mattstack sync types
+
+# Generate Zod validation schemas
+mattstack sync zod
+
+# Generate TanStack Query hooks from Django routes
+mattstack sync api-client
+
+# Run all three
+mattstack sync all
+```
+
+### `deps` Subcommands
+
+```bash
+mattstack deps check           # Show outdated packages
+mattstack deps update          # Update both stacks
+mattstack deps update --backend-only
+mattstack deps audit           # Security vulnerability scan
+```
+
+### `health`
+
+```bash
+mattstack health               # Check Docker, DB, Redis ports
+mattstack health --live        # Also probe HTTP endpoints
+```
+
+### `hooks`
+
+```bash
+mattstack hooks install        # Install pre-commit hooks
+mattstack hooks status         # Show hook status
+mattstack hooks run            # Run all hooks manually
+```
+
+### `workflow`
+
+```bash
+mattstack workflow                          # GitHub Actions (default)
+mattstack workflow --platform gitlab-ci     # GitLab CI
+mattstack workflow --dry-run                # Preview without writing
 ```
 
 ### `completions`
