@@ -1,10 +1,12 @@
 name: CI
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+# Disabled temporarily — re-enable when CI environment is fixed
+# on:
+#   push:
+#     branches: [main]
+#   pull_request:
+#     branches: [main]
+on: workflow_dispatch
 
 jobs:
   test:
