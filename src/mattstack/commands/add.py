@@ -183,6 +183,16 @@ def run_add(
         )
         raise typer.Exit(code=1)
 
+    # Validate framework option
+    if framework:
+        valid_frameworks = [f.value for f in FrontendFramework]
+        if framework not in valid_frameworks:
+            print_error(
+                f"Invalid framework '{framework}'. "
+                f"Valid: {', '.join(valid_frameworks)}"
+            )
+            raise typer.Exit(code=1)
+
     # Validate project path exists
     if not project_path.is_dir():
         print_error(f"Project directory not found: {project_path}")

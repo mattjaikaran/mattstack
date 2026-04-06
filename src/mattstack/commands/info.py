@@ -43,9 +43,11 @@ def _show_usage() -> None:
     examples = [
         ("mattstack init", "Interactive wizard"),
         ("mattstack init my-app --preset starter-fullstack", "Preset mode"),
+        ("mattstack init my-app --preset rsbuild-fullstack", "Rsbuild + Django"),
         ("mattstack init my-app --preset nextjs-fullstack", "Next.js + Django"),
         ("mattstack init my-app --preset b2b-fullstack --ios", "With iOS"),
         ("mattstack init --config stack.yaml", "Config file"),
+        ("mattstack add frontend --framework react-rsbuild", "Add Rsbuild to existing"),
         ("mattstack add frontend --framework nextjs", "Add Next.js to existing"),
         ("mattstack doctor", "Check environment"),
     ]

@@ -161,9 +161,9 @@ def info() -> None:
     run_info()
 
 
-@app.command(hidden=True)
+@app.command()
 def presets() -> None:
-    """List available presets (alias for info)."""
+    """List available presets, repos, and usage examples."""
     from mattstack.commands.info import run_info
 
     run_info()

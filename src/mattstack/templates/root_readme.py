@@ -44,6 +44,8 @@ def _tech_stack(config: ProjectConfig) -> str:
     if config.has_frontend:
         if config.is_nextjs:
             stack.append("- **Frontend**: Next.js (App Router, TypeScript, Tailwind)")
+        elif config.frontend_framework.value == "react-rsbuild":
+            stack.append("- **Frontend**: React + Rsbuild + TypeScript (TanStack Router)")
         else:
             is_tanstack = config.frontend_framework.value == "react-vite"
             fw = "TanStack Router" if is_tanstack else "React Router"

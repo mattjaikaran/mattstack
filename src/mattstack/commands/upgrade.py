@@ -29,6 +29,9 @@ COMPONENT_REPOS: dict[str, str] = {
 # Files that indicate Next.js frontend (checked during upgrade to pick correct repo)
 NEXTJS_MARKERS = {"next.config.ts", "next.config.js", "next.config.mjs"}
 
+# Files that indicate Rsbuild frontend
+RSBUILD_MARKERS = {"rsbuild.config.ts", "rsbuild.config.js", "rsbuild.config.mjs"}
+
 # Files that are typically user-customized and should never be overwritten
 SKIP_FILES: set[str] = {"README.md", ".env", ".env.local", "CLAUDE.md"}
 
@@ -134,6 +137,8 @@ def _detect_frontend_repo_key(project_path: Path) -> str:
     frontend_dir = project_path / "frontend"
     if any((frontend_dir / marker).exists() for marker in NEXTJS_MARKERS):
         return "nextjs"
+    if any((frontend_dir / marker).exists() for marker in RSBUILD_MARKERS):
+        return "react-rsbuild"
     return "react-vite"
 
 

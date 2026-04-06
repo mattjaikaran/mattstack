@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from mattstack.config import FrontendFramework, ProjectConfig
 
+_RSBUILD = FrontendFramework.REACT_RSBUILD
+
 
 def generate_claude_md(config: ProjectConfig) -> str:
     """Generate CLAUDE.md for AI assistant context."""
@@ -46,6 +48,8 @@ def _structure(config: ProjectConfig) -> str:
     if config.has_frontend:
         if config.is_nextjs:
             parts.append("- `frontend/` — Next.js (App Router, TypeScript, Tailwind)")
+        elif config.frontend_framework == _RSBUILD:
+            parts.append("- `frontend/` — React + Rsbuild + TypeScript (TanStack Router)")
         else:
             fw = config.frontend_framework
             router = "TanStack Router" if fw == FrontendFramework.REACT_VITE else "React Router"
@@ -69,6 +73,8 @@ def _tech(config: ProjectConfig) -> str:
     if config.has_frontend:
         if config.is_nextjs:
             parts.append("- Frontend: Next.js (App Router), TypeScript (strict)")
+        elif config.frontend_framework == _RSBUILD:
+            parts.append("- Frontend: React 19, Rsbuild (Rspack), TypeScript (strict)")
         else:
             parts.append("- Frontend: React 18, Vite, TypeScript (strict)")
     if config.include_ios:
@@ -152,7 +158,12 @@ def _commands(config: ProjectConfig) -> str:
     if config.has_backend:
         lines.append("make backend-dev        # Django dev server (port 8000)")
     if config.has_frontend:
-        label = "Next.js" if config.is_nextjs else "Vite"
+        if config.is_nextjs:
+            label = "Next.js"
+        elif config.frontend_framework == _RSBUILD:
+            label = "Rsbuild"
+        else:
+            label = "Vite"
         lines.append(f"make frontend-dev       # {label} dev server (port 3000)")
     if config.is_fullstack:
         dev_desc = "Start all dev servers (docker + backend + frontend)"
@@ -193,7 +204,12 @@ def _env_vars(config: ProjectConfig) -> str:
     if config.has_backend:
         parts.append("- Root `.env`: `DATABASE_URL`, `DJANGO_SECRET_KEY`, `REDIS_URL` (if Redis)")
     if config.has_frontend:
-        api_var = "NEXT_PUBLIC_API_BASE_URL" if config.is_nextjs else "VITE_API_BASE_URL"
+        if config.is_nextjs:
+            api_var = "NEXT_PUBLIC_API_BASE_URL"
+        elif config.frontend_framework == _RSBUILD:
+            api_var = "PUBLIC_API_BASE_URL"
+        else:
+            api_var = "VITE_API_BASE_URL"
         parts.append(f"- Frontend: `{api_var}` for API base URL")
     if not config.has_backend and not config.has_frontend:
         return ""
@@ -231,6 +247,17 @@ def _frontend(config: ProjectConfig) -> str:
 - API base: `NEXT_PUBLIC_API_BASE_URL` env var
 - API routes: `app/api/` directory
 - Dev server: `cd frontend && bun run dev` (Next.js dev server on port 3000)"""
+    if config.frontend_framework == _RSBUILD:
+        return """## Frontend
+
+- Language: TypeScript (strict mode)
+- Framework: React 19 + Rsbuild (Rspack, Rust-powered)
+- Routing: TanStack Router (file-based)
+- Package manager: bun (NEVER npm/yarn)
+- Styling: Tailwind CSS
+- API base: `PUBLIC_API_BASE_URL` env var
+- State management: TanStack Query (server), Zustand (client)
+- Build config: `rsbuild.config.ts` (NOT vite.config.ts)"""
     return """## Frontend
 
 - Language: TypeScript (strict mode)

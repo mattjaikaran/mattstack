@@ -77,7 +77,7 @@ mattstack init my-app --preset b2b-fullstack -o ~/projects
 | Flag | Description |
 |------|-------------|
 | `--path, -p` | Project path (default: current directory) |
-| `--framework, -f` | Frontend framework: `react-vite`, `react-vite-starter`, `nextjs` |
+| `--framework, -f` | Frontend framework: `react-vite`, `react-vite-starter`, `react-rsbuild`, `nextjs` |
 | `--dry-run` | Preview what would be added |
 
 ### `upgrade` Options
