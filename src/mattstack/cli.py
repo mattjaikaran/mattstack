@@ -340,6 +340,10 @@ def lint(
         bool,
         typer.Option("--frontend-only", help="Lint frontend only"),
     ] = False,
+    parallel: Annotated[
+        bool,
+        typer.Option("--parallel", help="Run backend and frontend linting in parallel"),
+    ] = False,
 ) -> None:
     """Run linters across backend and frontend."""
     from mattstack.commands.lint import run_lint
@@ -350,6 +354,7 @@ def lint(
         format_check=format_check,
         backend_only=backend_only,
         frontend_only=frontend_only,
+        parallel=parallel,
     )
 
 
@@ -437,6 +442,73 @@ def completions(
     from mattstack.commands.completions import run_completions
 
     run_completions(install=install, show=show)
+
+
+@app.command()
+def create(
+    name: Annotated[
+        str | None,
+        typer.Argument(help="Project name"),
+    ] = None,
+    preset: Annotated[
+        str | None,
+        typer.Option("--preset", "-p", help="Use a preset (e.g. starter-fullstack, b2b-api)"),
+    ] = None,
+    config: Annotated[
+        str | None,
+        typer.Option("--config", "-c", help="Path to YAML config file"),
+    ] = None,
+    ios: Annotated[
+        bool,
+        typer.Option("--ios", help="Include iOS client"),
+    ] = False,
+    output_dir: Annotated[
+        Path | None,
+        typer.Option("--output", "-o", help="Output directory (default: current)"),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Preview what would be generated without creating files"),
+    ] = False,
+) -> None:
+    """Create a new project (alias for init)."""
+    from mattstack.commands.init import run_init
+
+    run_init(
+        name=name,
+        preset=preset,
+        config_file=config,
+        ios=ios,
+        output_dir=output_dir,
+        dry_run=dry_run,
+    )
+
+
+@app.command()
+def fmt(
+    path: Annotated[
+        Path | None,
+        typer.Option("--path", "-p", help="Project path"),
+    ] = None,
+    backend_only: Annotated[
+        bool,
+        typer.Option("--backend-only", help="Format backend only"),
+    ] = False,
+    frontend_only: Annotated[
+        bool,
+        typer.Option("--frontend-only", help="Format frontend only"),
+    ] = False,
+) -> None:
+    """Format all code (alias for lint --fix --format-check)."""
+    from mattstack.commands.lint import run_lint
+
+    run_lint(
+        path=path or Path.cwd(),
+        fix=True,
+        format_check=True,
+        backend_only=backend_only,
+        frontend_only=frontend_only,
+    )
 
 
 if __name__ == "__main__":

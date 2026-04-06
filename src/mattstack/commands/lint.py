@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 from pathlib import Path
 
 import typer
@@ -51,7 +52,10 @@ def _run_backend_lint(
     results.append(result)
 
     if format_check:
-        fmt_args = ["uv", "run", "ruff", "format", "--check", "."]
+        fmt_args = ["uv", "run", "ruff", "format"]
+        if not fix:
+            fmt_args.append("--check")
+        fmt_args.append(".")
         fmt_result = subprocess.run(fmt_args, cwd=backend_dir, text=True, capture_output=True)
         results.append(fmt_result)
 
@@ -91,6 +95,7 @@ def run_lint(
     format_check: bool = False,
     backend_only: bool = False,
     frontend_only: bool = False,
+    parallel: bool = False,
 ) -> None:
     """Run linters across backend and frontend."""
     path = path.resolve()
@@ -112,25 +117,65 @@ def run_lint(
     console.print("[bold cyan]mattstack lint[/bold cyan]")
     console.print()
 
+    start = time.perf_counter()
     results: list[tuple[str, int, str]] = []
 
-    if run_backend:
-        print_info("Linting backend...")
-        be_result = _run_backend_lint(path, fix, format_check)
-        if be_result.stdout:
-            console.print(be_result.stdout)
-        if be_result.stderr:
-            console.print(be_result.stderr)
-        results.append(("backend", be_result.returncode, be_result.stdout + be_result.stderr))
+    if parallel and run_backend and run_frontend:
+        print_info("Linting backend and frontend in parallel...")
+        be_args = ["uv", "run", "ruff", "check", "."]
+        if fix:
+            be_args.append("--fix")
+        be_proc = subprocess.Popen(
+            be_args,
+            cwd=path / "backend",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        frontend_dir = path / "frontend"
+        pm = resolve_package_manager(frontend_dir)
+        pkg = json.loads((frontend_dir / "package.json").read_text(encoding="utf-8"))
+        scripts = pkg.get("scripts", {})
+        script = "lint:fix" if (fix and "lint:fix" in scripts) else "lint"
+        fe_cmd = build_run_cmd(pm, script)
+        fe_proc = subprocess.Popen(
+            fe_cmd.full,
+            cwd=frontend_dir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        be_out, _ = be_proc.communicate()
+        fe_out, _ = fe_proc.communicate()
+        be_code = be_proc.returncode or 0
+        fe_code = fe_proc.returncode or 0
+        if be_out:
+            console.print("[bold]Backend:[/bold]")
+            console.print(be_out)
+        if fe_out:
+            console.print("[bold]Frontend:[/bold]")
+            console.print(fe_out)
+        results = [("backend", be_code, be_out), ("frontend", fe_code, fe_out)]
+    else:
+        if run_backend:
+            print_info("Linting backend...")
+            be_result = _run_backend_lint(path, fix, format_check)
+            if be_result.stdout:
+                console.print(be_result.stdout)
+            if be_result.stderr:
+                console.print(be_result.stderr)
+            results.append(("backend", be_result.returncode, be_result.stdout + be_result.stderr))
 
-    if run_frontend:
-        print_info("Linting frontend...")
-        fe_result = _run_frontend_lint(path, fix)
-        if fe_result.stdout:
-            console.print(fe_result.stdout)
-        if fe_result.stderr:
-            console.print(fe_result.stderr)
-        results.append(("frontend", fe_result.returncode, fe_result.stdout + fe_result.stderr))
+        if run_frontend:
+            print_info("Linting frontend...")
+            fe_result = _run_frontend_lint(path, fix)
+            if fe_result.stdout:
+                console.print(fe_result.stdout)
+            if fe_result.stderr:
+                console.print(fe_result.stderr)
+            results.append(("frontend", fe_result.returncode, fe_result.stdout + fe_result.stderr))
+
+    elapsed = time.perf_counter() - start
 
     table = create_table("Lint Results", ["Component", "Status"])
     all_ok = True
@@ -141,7 +186,10 @@ def run_lint(
         table.add_row(name, status)
     console.print()
     console.print(table)
+    console.print(f"[dim]({elapsed:.1f}s)[/dim]")
 
     if not all_ok:
+        if not fix:
+            console.print("[dim]Tip: run `mattstack lint --fix` to auto-fix issues[/dim]")
         raise typer.Exit(code=1)
     print_success("All lint checks passed")

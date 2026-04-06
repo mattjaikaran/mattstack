@@ -8,12 +8,20 @@ from pathlib import Path
 
 import typer
 
-from mattstack.utils.console import console, create_table, print_error, print_info, print_success
+from mattstack.utils.console import (
+    console,
+    create_table,
+    print_error,
+    print_info,
+    print_success,
+    print_warning,
+)
 from mattstack.utils.docker import docker_compose_available, docker_running
 from mattstack.utils.package_manager import (
     build_run_cmd,
     resolve_package_manager,
 )
+from mattstack.utils.process import check_port_available
 
 
 def _has_backend(path: Path) -> bool:
@@ -95,6 +103,8 @@ def run_dev(
 
     # Backend
     if "backend" in requested and _has_backend(path):
+        if not check_port_available(8000):
+            print_warning("Port 8000 already in use — backend may already be running")
         print_info("Starting backend dev server...")
         proc = subprocess.Popen(
             ["uv", "run", "python", "manage.py", "runserver"],
@@ -109,6 +119,8 @@ def run_dev(
 
     # Frontend
     if "frontend" in requested and _has_frontend(path):
+        if not check_port_available(3000):
+            print_warning("Port 3000 already in use — frontend may already be running")
         print_info("Starting frontend dev server...")
         pm = resolve_package_manager(frontend_dir)
         cmd = build_run_cmd(pm, "dev")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 from pathlib import Path
 
 import typer
@@ -92,6 +93,7 @@ def run_test(
     console.print("[bold cyan]mattstack test[/bold cyan]")
     console.print()
 
+    start = time.perf_counter()
     results: list[tuple[str, int]] = []
 
     if parallel and run_backend and run_frontend:
@@ -154,8 +156,10 @@ def run_test(
         all_ok &= ok
         status = "[green]PASS[/green]" if ok else "[red]FAIL[/red]"
         table.add_row(name, status)
+    elapsed = time.perf_counter() - start
     console.print()
     console.print(table)
+    console.print(f"[dim]({elapsed:.1f}s)[/dim]")
 
     if not all_ok:
         raise typer.Exit(code=1)
