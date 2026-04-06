@@ -291,11 +291,38 @@ def _docker_services(config: ProjectConfig) -> str:
 
 
 def _mattstack_integration(config: ProjectConfig) -> str:
-    return """## mattstack Integration
-
-This project was scaffolded with `mattstack`. The CLI provides unified commands:
-- `mattstack dev` — Start all services (Docker + backend + frontend)
-- `mattstack test` — Run all tests
-- `mattstack lint` — Lint all code
-- `mattstack env check` — Compare .env files
-- `mattstack audit` — Static analysis (quality, types, endpoints, tests, dependencies)"""
+    lines = [
+        "## mattstack Integration",
+        "",
+        "This project was scaffolded with `mattstack`. The CLI provides unified commands:",
+        "- `mattstack dev` — Start all services (Docker + backend + frontend)",
+        "- `mattstack test` — Run all tests",
+        "- `mattstack lint` — Lint all code",
+        "- `mattstack fmt` — Format all code",
+        "- `mattstack env check` — Compare .env files",
+        "- `mattstack audit` — Static analysis (quality, types, endpoints, tests, dependencies)",
+        "- `mattstack health` — Check service health (Docker, DB, Redis, servers)",
+        "- `mattstack deps check` — Show outdated packages",
+    ]
+    if config.has_backend:
+        lines.extend([
+            "- `mattstack generate model <Name> --fields \"...\"` — Scaffold Django model + schema + router",
+            "- `mattstack db migrate` — Run Django migrations",
+            "- `mattstack db seed` — Seed database with sample data",
+        ])
+    if config.has_backend and config.has_frontend:
+        lines.extend([
+            "- `mattstack sync types` — Generate TypeScript interfaces from Pydantic models",
+            "- `mattstack sync zod` — Generate Zod schemas from Pydantic models",
+            "- `mattstack sync api-client` — Generate TanStack Query hooks from Django routes",
+        ])
+    if config.has_frontend:
+        lines.extend([
+            "- `mattstack generate component <Name>` — Scaffold React component",
+            "- `mattstack generate page <name>` — Scaffold route page",
+        ])
+    lines.extend([
+        "- `mattstack hooks install` — Install pre-commit git hooks",
+        "- `mattstack workflow` — Generate CI/CD workflows (GitHub Actions)",
+    ])
+    return "\n".join(lines)
