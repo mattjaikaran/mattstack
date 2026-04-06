@@ -19,6 +19,24 @@ app = typer.Typer(
 app.add_typer(client_app, name="client")
 
 
+def _register_subgroups() -> None:
+    """Lazily register subcommand groups to avoid import-time overhead."""
+    from mattstack.commands.db import db_app
+    from mattstack.commands.deps import deps_app
+    from mattstack.commands.generate import generate_app
+    from mattstack.commands.hooks import hooks_app
+    from mattstack.commands.sync import sync_app
+
+    app.add_typer(generate_app, name="generate")
+    app.add_typer(db_app, name="db")
+    app.add_typer(sync_app, name="sync")
+    app.add_typer(deps_app, name="deps")
+    app.add_typer(hooks_app, name="hooks")
+
+
+_register_subgroups()
+
+
 @app.callback()
 def main(
     verbose: Annotated[
@@ -509,6 +527,44 @@ def fmt(
         backend_only=backend_only,
         frontend_only=frontend_only,
     )
+
+
+@app.command()
+def health(
+    path: Annotated[
+        Path | None,
+        typer.Option("--path", "-p", help="Project path"),
+    ] = None,
+    live: Annotated[
+        bool,
+        typer.Option("--live", help="Probe HTTP endpoints (backend + frontend)"),
+    ] = False,
+) -> None:
+    """Check health of all project services (Docker, DB, Redis, servers)."""
+    from mattstack.commands.health import run_health
+
+    run_health(path=path or Path.cwd(), live=live)
+
+
+@app.command()
+def workflow(
+    path: Annotated[
+        Path | None,
+        typer.Option("--path", "-p", help="Project path"),
+    ] = None,
+    platform: Annotated[
+        str,
+        typer.Option("--platform", help="CI platform: github-actions, gitlab-ci"),
+    ] = "github-actions",
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Preview without writing files"),
+    ] = False,
+) -> None:
+    """Generate CI/CD workflow files (GitHub Actions, GitLab CI)."""
+    from mattstack.commands.workflow import run_generate_workflow
+
+    run_generate_workflow(path=path or Path.cwd(), platform=platform, dry_run=dry_run)
 
 
 if __name__ == "__main__":
