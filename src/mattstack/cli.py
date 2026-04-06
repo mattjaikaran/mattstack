@@ -114,7 +114,7 @@ def add(
         typer.Option(
             "--framework",
             "-f",
-            help="Frontend framework: react-vite, react-vite-starter, react-rsbuild, nextjs",
+            help="Frontend framework: react-vite, react-vite-starter, react-rsbuild, react-rsbuild-kibo, nextjs",
         ),
     ] = None,
     dry_run: Annotated[

@@ -132,12 +132,29 @@ def _detect_components(path: Path) -> list[str]:
     return components
 
 
+def _is_kibo_project(frontend_dir: Path) -> bool:
+    """Check if a rsbuild project uses Kibo UI (has @dnd-kit or kibo in package.json)."""
+    pkg = frontend_dir / "package.json"
+    if not pkg.exists():
+        return False
+    try:
+        import json
+
+        data = json.loads(pkg.read_text(encoding="utf-8"))
+        deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
+        return "@dnd-kit/core" in deps or "recharts" in deps
+    except (json.JSONDecodeError, OSError):
+        return False
+
+
 def _detect_frontend_repo_key(project_path: Path) -> str:
     """Detect which frontend boilerplate repo to compare against."""
     frontend_dir = project_path / "frontend"
     if any((frontend_dir / marker).exists() for marker in NEXTJS_MARKERS):
         return "nextjs"
     if any((frontend_dir / marker).exists() for marker in RSBUILD_MARKERS):
+        if _is_kibo_project(frontend_dir):
+            return "react-rsbuild-kibo"
         return "react-rsbuild"
     return "react-vite"
 

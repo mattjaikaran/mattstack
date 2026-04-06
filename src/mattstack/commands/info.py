@@ -44,6 +44,7 @@ def _show_usage() -> None:
         ("mattstack init", "Interactive wizard"),
         ("mattstack init my-app --preset starter-fullstack", "Preset mode"),
         ("mattstack init my-app --preset rsbuild-fullstack", "Rsbuild + Django"),
+        ("mattstack init my-app --preset kibo-fullstack", "Kibo UI + Django"),
         ("mattstack init my-app --preset nextjs-fullstack", "Next.js + Django"),
         ("mattstack init my-app --preset b2b-fullstack --ios", "With iOS"),
         ("mattstack init --config stack.yaml", "Config file"),

@@ -168,6 +168,10 @@ def _run_interactive(
                 questionary.Choice(
                     "React Rsbuild + TanStack Router (Rust-powered)", value="react-rsbuild"
                 ),
+                questionary.Choice(
+                    "React Rsbuild + Kibo UI (dashboards, kanban, calendars)",
+                    value="react-rsbuild-kibo",
+                ),
                 questionary.Choice("Next.js (App Router, TypeScript, Tailwind)", value="nextjs"),
             ],
             style=STYLE,

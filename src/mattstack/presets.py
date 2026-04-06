@@ -92,6 +92,21 @@ PRESETS: dict[str, Preset] = {
         frontend_framework=FrontendFramework.REACT_RSBUILD,
         use_celery=False,
     ),
+    "kibo-fullstack": Preset(
+        name="kibo-fullstack",
+        description="Fullstack monorepo (Django API + React Rsbuild + Kibo UI)",
+        project_type=ProjectType.FULLSTACK,
+        variant=Variant.STARTER,
+        frontend_framework=FrontendFramework.REACT_RSBUILD_KIBO,
+    ),
+    "kibo-frontend": Preset(
+        name="kibo-frontend",
+        description="React Rsbuild + Kibo UI SPA (dashboards, kanban, calendars)",
+        project_type=ProjectType.FRONTEND_ONLY,
+        variant=Variant.STARTER,
+        frontend_framework=FrontendFramework.REACT_RSBUILD_KIBO,
+        use_celery=False,
+    ),
     "nextjs-fullstack": Preset(
         name="nextjs-fullstack",
         description="Fullstack monorepo (Django API + Next.js App Router)",

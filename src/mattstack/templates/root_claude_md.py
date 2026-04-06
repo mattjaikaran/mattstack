@@ -5,6 +5,7 @@ from __future__ import annotations
 from mattstack.config import FrontendFramework, ProjectConfig
 
 _RSBUILD = FrontendFramework.REACT_RSBUILD
+_KIBO = FrontendFramework.REACT_RSBUILD_KIBO
 
 
 def generate_claude_md(config: ProjectConfig) -> str:
@@ -48,7 +49,9 @@ def _structure(config: ProjectConfig) -> str:
     if config.has_frontend:
         if config.is_nextjs:
             parts.append("- `frontend/` — Next.js (App Router, TypeScript, Tailwind)")
-        elif config.frontend_framework == _RSBUILD:
+        elif config.frontend_framework == _KIBO:
+            parts.append("- `frontend/` — React + Rsbuild + Kibo UI + TypeScript (TanStack Router/Table)")
+        elif config.frontend_framework in (_RSBUILD, _KIBO):
             parts.append("- `frontend/` — React + Rsbuild + TypeScript (TanStack Router)")
         else:
             fw = config.frontend_framework
@@ -73,7 +76,7 @@ def _tech(config: ProjectConfig) -> str:
     if config.has_frontend:
         if config.is_nextjs:
             parts.append("- Frontend: Next.js (App Router), TypeScript (strict)")
-        elif config.frontend_framework == _RSBUILD:
+        elif config.frontend_framework in (_RSBUILD, _KIBO):
             parts.append("- Frontend: React 19, Rsbuild (Rspack), TypeScript (strict)")
         else:
             parts.append("- Frontend: React 18, Vite, TypeScript (strict)")
@@ -160,7 +163,7 @@ def _commands(config: ProjectConfig) -> str:
     if config.has_frontend:
         if config.is_nextjs:
             label = "Next.js"
-        elif config.frontend_framework == _RSBUILD:
+        elif config.frontend_framework in (_RSBUILD, _KIBO):
             label = "Rsbuild"
         else:
             label = "Vite"
@@ -206,7 +209,7 @@ def _env_vars(config: ProjectConfig) -> str:
     if config.has_frontend:
         if config.is_nextjs:
             api_var = "NEXT_PUBLIC_API_BASE_URL"
-        elif config.frontend_framework == _RSBUILD:
+        elif config.frontend_framework in (_RSBUILD, _KIBO):
             api_var = "PUBLIC_API_BASE_URL"
         else:
             api_var = "VITE_API_BASE_URL"
@@ -247,7 +250,7 @@ def _frontend(config: ProjectConfig) -> str:
 - API base: `NEXT_PUBLIC_API_BASE_URL` env var
 - API routes: `app/api/` directory
 - Dev server: `cd frontend && bun run dev` (Next.js dev server on port 3000)"""
-    if config.frontend_framework == _RSBUILD:
+    if config.frontend_framework in (_RSBUILD, _KIBO):
         return """## Frontend
 
 - Language: TypeScript (strict mode)
