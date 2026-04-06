@@ -568,4 +568,4 @@ uv run ruff format src/ tests/ # Format
 
 ## License
 
-MIT
+Apache-2.0
