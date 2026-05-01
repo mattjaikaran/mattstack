@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import subprocess
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import typer
@@ -89,6 +91,16 @@ def _run_frontend_lint(path: Path, fix: bool) -> subprocess.CompletedProcess[str
     return subprocess.run(cmd.full, cwd=frontend_dir, text=True, capture_output=True)
 
 
+def _stream_process(proc: subprocess.Popen[str], label: str, lock: threading.Lock) -> int:
+    """Stream stdout lines from proc to console, prefixing each with label."""
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        with lock:
+            console.print(f"[dim]{label}[/dim] {line}", end="")
+    proc.wait()
+    return proc.returncode if proc.returncode is not None else 1
+
+
 def run_lint(
     path: Path,
     fix: bool = False,
@@ -145,17 +157,13 @@ def run_lint(
             stderr=subprocess.STDOUT,
             text=True,
         )
-        be_out, _ = be_proc.communicate()
-        fe_out, _ = fe_proc.communicate()
-        be_code = be_proc.returncode or 0
-        fe_code = fe_proc.returncode or 0
-        if be_out:
-            console.print("[bold]Backend:[/bold]")
-            console.print(be_out)
-        if fe_out:
-            console.print("[bold]Frontend:[/bold]")
-            console.print(fe_out)
-        results = [("backend", be_code, be_out), ("frontend", fe_code, fe_out)]
+        lock = threading.Lock()
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            be_future = executor.submit(_stream_process, be_proc, "[backend]", lock)
+            fe_future = executor.submit(_stream_process, fe_proc, "[frontend]", lock)
+        be_code = be_future.result()
+        fe_code = fe_future.result()
+        results = [("backend", be_code, ""), ("frontend", fe_code, "")]
     else:
         if run_backend:
             print_info("Linting backend...")

@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import io
 import json
 import subprocess
+import threading
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import typer
 
-from mattstack.commands.lint import _has_backend, _has_frontend, run_lint
+from mattstack.commands.lint import _has_backend, _has_frontend, _stream_process, run_lint
 
 
 class TestHasBackend:
@@ -76,3 +78,110 @@ class TestRunLint:
         mock_run.assert_called()
         call_args = mock_run.call_args[0][0]
         assert "ruff" in call_args
+
+    def test_parallel_spawns_two_popen_calls(self, tmp_path: Path) -> None:
+        backend = tmp_path / "backend"
+        backend.mkdir()
+        (backend / "pyproject.toml").write_text('[project]\nname = "test"\n')
+        frontend = tmp_path / "frontend"
+        frontend.mkdir()
+        (frontend / "package.json").write_text(
+            json.dumps({"scripts": {"lint": "eslint ."}, "packageManager": "bun@1.0.0"})
+        )
+
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter([])
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = None
+
+        with patch("mattstack.commands.lint.subprocess.Popen", return_value=mock_proc) as mock_popen:
+            run_lint(tmp_path, parallel=True)
+
+        assert mock_popen.call_count == 2
+        all_args = [call[0][0] for call in mock_popen.call_args_list]
+        assert any("ruff" in args for args in all_args)
+
+    def test_parallel_returns_nonzero_when_backend_fails(self, tmp_path: Path) -> None:
+        backend = tmp_path / "backend"
+        backend.mkdir()
+        (backend / "pyproject.toml").write_text('[project]\nname = "test"\n')
+        frontend = tmp_path / "frontend"
+        frontend.mkdir()
+        (frontend / "package.json").write_text(
+            json.dumps({"scripts": {"lint": "eslint ."}, "packageManager": "bun@1.0.0"})
+        )
+
+        be_proc = MagicMock()
+        be_proc.stdout = iter(["error: bad code\n"])
+        be_proc.returncode = 1
+        be_proc.wait.return_value = None
+
+        fe_proc = MagicMock()
+        fe_proc.stdout = iter([])
+        fe_proc.returncode = 0
+        fe_proc.wait.return_value = None
+
+        with (
+            patch("mattstack.commands.lint.subprocess.Popen", side_effect=[be_proc, fe_proc]),
+            pytest.raises(typer.Exit) as exc_info,
+        ):
+            run_lint(tmp_path, parallel=True)
+
+        assert exc_info.value.exit_code == 1
+
+    def test_parallel_returns_nonzero_when_frontend_fails(self, tmp_path: Path) -> None:
+        backend = tmp_path / "backend"
+        backend.mkdir()
+        (backend / "pyproject.toml").write_text('[project]\nname = "test"\n')
+        frontend = tmp_path / "frontend"
+        frontend.mkdir()
+        (frontend / "package.json").write_text(
+            json.dumps({"scripts": {"lint": "eslint ."}, "packageManager": "bun@1.0.0"})
+        )
+
+        be_proc = MagicMock()
+        be_proc.stdout = iter([])
+        be_proc.returncode = 0
+        be_proc.wait.return_value = None
+
+        fe_proc = MagicMock()
+        fe_proc.stdout = iter(["error: lint failed\n"])
+        fe_proc.returncode = 1
+        fe_proc.wait.return_value = None
+
+        with (
+            patch("mattstack.commands.lint.subprocess.Popen", side_effect=[be_proc, fe_proc]),
+            pytest.raises(typer.Exit) as exc_info,
+        ):
+            run_lint(tmp_path, parallel=True)
+
+        assert exc_info.value.exit_code == 1
+
+
+class TestStreamProcess:
+    def test_streams_lines_with_label(self) -> None:
+        proc = MagicMock()
+        proc.stdout = iter(["line one\n", "line two\n"])
+        proc.returncode = 0
+        proc.wait.return_value = None
+
+        lock = threading.Lock()
+        printed: list[str] = []
+        with patch("mattstack.commands.lint.console") as mock_console:
+            mock_console.print.side_effect = lambda *a, **kw: printed.append(str(a[0]))
+            result = _stream_process(proc, "[backend]", lock)
+
+        assert result == 0
+        assert any("[backend]" in line for line in printed)
+
+    def test_returns_returncode_on_failure(self) -> None:
+        proc = MagicMock()
+        proc.stdout = iter([])
+        proc.returncode = 1
+        proc.wait.return_value = None
+
+        lock = threading.Lock()
+        with patch("mattstack.commands.lint.console"):
+            result = _stream_process(proc, "[backend]", lock)
+
+        assert result == 1
