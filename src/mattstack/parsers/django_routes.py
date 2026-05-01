@@ -233,3 +233,132 @@ def find_controller_files(project_path: Path) -> list[Path]:
         "**/controllers.py",
     ]
     return find_files(project_path, patterns)
+
+
+# ── django-matt APIController parsing ──────────────────────────────────────
+
+
+@dataclass
+class DjangoMattEndpoint:
+    method: str        # GET POST PUT DELETE PATCH
+    path: str
+    handler: str
+    auth: bool
+
+
+@dataclass
+class DjangoMattController:
+    name: str
+    prefix: str
+    tags: list[str]
+    file: Path
+    line: int
+    endpoints: list[DjangoMattEndpoint] = field(default_factory=list)
+
+
+# class ProductController(APIController):  or  class ProductController(MattAPIController):
+MATT_CONTROLLER_CLASS_RE = re.compile(
+    r"^class\s+(\w+)\s*\((?:APIController|MattAPIController|MattController)\)",
+    re.MULTILINE,
+)
+
+# prefix = "/products"  or  prefix = '/products'
+MATT_PREFIX_RE = re.compile(r'^\s+prefix\s*=\s*[\'"]([^\'"]+)[\'"]', re.MULTILINE)
+
+# tags = ["Products"]  or  tags = ['Products']
+MATT_TAGS_RE = re.compile(r'^\s+tags\s*=\s*\[([^\]]+)\]', re.MULTILINE)
+
+# @get("/path")  @post("/path")  etc. — plain decorators (not @router.get)
+MATT_METHOD_RE = re.compile(
+    r"^\s+@(get|post|put|delete|patch)\s*\(\s*['\"]([^'\"]*)['\"]"
+    r"(?:[^)]*auth\s*=\s*(\w+))?"
+    r"[^)]*\)",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+_INDENTED_DEF_RE = re.compile(r"def\s+(\w+)\s*\(")
+
+
+def parse_django_matt_controller_file(path: Path) -> list[DjangoMattController]:
+    """Parse APIController subclasses and their @get/@post/... endpoints."""
+    text = path.read_text(encoding="utf-8", errors="replace")
+    controllers: list[DjangoMattController] = []
+
+    for class_match in MATT_CONTROLLER_CLASS_RE.finditer(text):
+        class_name = class_match.group(1)
+        class_line = text[: class_match.start()].count("\n") + 1
+
+        # Determine class body (until next top-level class or EOF)
+        next_class = MATT_CONTROLLER_CLASS_RE.search(text, class_match.end())
+        body_end = next_class.start() if next_class else len(text)
+        class_body = text[class_match.end():body_end]
+
+        prefix_match = MATT_PREFIX_RE.search(class_body)
+        prefix = prefix_match.group(1) if prefix_match else f"/{class_name.lower()}s"
+
+        tags_match = MATT_TAGS_RE.search(class_body)
+        tags: list[str] = []
+        if tags_match:
+            raw_tags = tags_match.group(1)
+            tags = [t.strip().strip("'\"") for t in raw_tags.split(",") if t.strip()]
+
+        endpoints: list[DjangoMattEndpoint] = []
+        for ep_match in MATT_METHOD_RE.finditer(class_body):
+            method = ep_match.group(1).upper()
+            ep_path = ep_match.group(2)
+            auth_val = ep_match.group(3) if ep_match.lastindex and ep_match.lastindex >= 3 else None
+            has_auth = bool(auth_val and auth_val.lower() not in ("none", "false"))
+
+            remaining = class_body[ep_match.end():]
+            handler_match = _INDENTED_DEF_RE.search(remaining)
+            handler = handler_match.group(1) if handler_match else "unknown"
+
+            endpoints.append(
+                DjangoMattEndpoint(
+                    method=method,
+                    path=ep_path,
+                    handler=handler,
+                    auth=has_auth,
+                )
+            )
+
+        controllers.append(
+            DjangoMattController(
+                name=class_name,
+                prefix=prefix,
+                tags=tags,
+                file=path,
+                line=class_line,
+                endpoints=endpoints,
+            )
+        )
+
+    return controllers
+
+
+def find_django_matt_controller_files(project_path: Path) -> list[Path]:
+    """Find Python files likely containing django-matt APIController subclasses."""
+    from mattstack.parsers.utils import find_files
+
+    patterns = [
+        "**/controllers/*.py",
+        "**/controllers.py",
+        "**/api/*.py",
+        "**/api.py",
+    ]
+    return find_files(project_path, patterns)
+
+
+def is_django_matt_project(project_path: Path) -> bool:
+    """Detect if a project uses django-matt (checks requirements/pyproject for django-matt)."""
+    for candidate in (
+        project_path / "backend" / "pyproject.toml",
+        project_path / "backend" / "requirements.txt",
+        project_path / "pyproject.toml",
+        project_path / "requirements.txt",
+    ):
+        if candidate.exists():
+            text = candidate.read_text(encoding="utf-8", errors="replace")
+            if "django-matt" in text:
+                return True
+    return False

@@ -117,6 +117,7 @@ def _mock_questionary_for_wizard(
     name: str | None = "wizard-app",
     project_type: str = "fullstack",
     variant: str = "starter",
+    backend_framework: str | None = "django-ninja",
     framework: str | None = "react-vite",
     ios: bool | None = False,
     celery: bool | None = True,
@@ -128,18 +129,21 @@ def _mock_questionary_for_wizard(
     1. text() — project name
     2. select() — project type
     3. select() — variant
-    4. select() — frontend framework (only for fullstack / frontend-only)
-    5. confirm() — include iOS (only for fullstack)
-    6. confirm() — include Celery (only for fullstack / backend-only)
-    7. confirm() — "Generate project?" final confirmation
+    4. select() — backend framework (only for fullstack / backend-only)
+    5. select() — frontend framework (only for fullstack / frontend-only)
+    6. confirm() — include iOS (only for fullstack)
+    7. confirm() — include Celery (only for fullstack / backend-only)
+    8. confirm() — "Generate project?" final confirmation
 
     We use side_effect lists on the .ask() return to handle the ordering.
     """
     # text().ask() — project name
     mock_q.text.return_value.ask.return_value = name
 
-    # select().ask() — called 2 or 3 times depending on project type
+    # select().ask() — called 2-4 times depending on project type
     select_answers: list[str | None] = [project_type, variant]
+    if backend_framework is not None and project_type in ("fullstack", "backend-only"):
+        select_answers.append(backend_framework)
     if framework is not None:
         select_answers.append(framework)
     mock_q.select.return_value.ask.side_effect = select_answers
@@ -281,7 +285,7 @@ def test_wizard_default_name_skips_prompt(tmp_path: Path) -> None:
     ):
         mock_gen.return_value = True
         # Only need select + confirm answers since name prompt is skipped
-        select_answers: list[str] = ["fullstack", "starter", "react-vite"]
+        select_answers: list[str] = ["fullstack", "starter", "django-ninja", "react-vite"]
         mock_q.select.return_value.ask.side_effect = select_answers
         mock_q.confirm.return_value.ask.side_effect = [False, True, True]  # ios, celery, confirm
         mock_q.Choice = lambda title, value: value  # noqa: ARG005

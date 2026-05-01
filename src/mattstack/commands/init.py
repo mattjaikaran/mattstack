@@ -10,6 +10,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from mattstack.config import (
+    BackendFramework,
     FrontendFramework,
     ProjectConfig,
     ProjectType,
@@ -155,7 +156,24 @@ def _run_interactive(
         raise KeyboardInterrupt
     variant = Variant(variant_choice)
 
-    # 4. Frontend framework (if applicable)
+    # 4. Backend framework (if applicable)
+    backend_framework = BackendFramework.DJANGO_NINJA
+    if project_type in (ProjectType.FULLSTACK, ProjectType.BACKEND_ONLY):
+        bf_choice = questionary.select(
+            "Backend framework:",
+            choices=[
+                questionary.Choice("Django Ninja Extra (default)", value="django-ninja"),
+                questionary.Choice(
+                    "django-matt (MattAPI controllers + CRUDService)", value="django-matt"
+                ),
+            ],
+            style=STYLE,
+        ).ask()
+        if not bf_choice:
+            raise KeyboardInterrupt
+        backend_framework = BackendFramework(bf_choice)
+
+    # 5. Frontend framework (if applicable)
     frontend_framework = FrontendFramework.REACT_VITE
     if project_type in (ProjectType.FULLSTACK, ProjectType.FRONTEND_ONLY):
         fw_choice = questionary.select(
@@ -180,7 +198,7 @@ def _run_interactive(
             raise KeyboardInterrupt
         frontend_framework = FrontendFramework(fw_choice)
 
-    # 5. iOS (if fullstack)
+    # 6. iOS (if fullstack)
     include_ios = False
     if project_type == ProjectType.FULLSTACK:
         include_ios = questionary.confirm(
@@ -191,7 +209,7 @@ def _run_interactive(
         if include_ios is None:
             raise KeyboardInterrupt
 
-    # 6. Celery
+    # 7. Celery
     use_celery = True
     if project_type in (ProjectType.FULLSTACK, ProjectType.BACKEND_ONLY):
         use_celery = questionary.confirm(
@@ -209,6 +227,7 @@ def _run_interactive(
         project_type=project_type,
         variant=variant,
         frontend_framework=frontend_framework,
+        backend_framework=backend_framework,
         include_ios=include_ios,
         use_celery=use_celery,
         use_redis=use_celery,  # Redis follows Celery
@@ -253,6 +272,8 @@ def _show_summary(config: ProjectConfig) -> None:
     table.add_row("Name", config.name)
     table.add_row("Type", config.project_type.value)
     table.add_row("Variant", config.variant.value)
+    if config.has_backend:
+        table.add_row("Backend", config.backend_framework.value)
     if config.has_frontend:
         table.add_row("Frontend", config.frontend_framework.value)
     if config.has_backend:

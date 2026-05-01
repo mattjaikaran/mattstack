@@ -134,6 +134,15 @@ def _detect_django_app(project_root: Path, app_override: str | None) -> str:
     return "core"
 
 
+def _detect_backend_framework(project_root: Path) -> str:
+    """Detect backend framework: django-matt or django-ninja (default)."""
+    from mattstack.parsers.django_routes import is_django_matt_project
+
+    if is_django_matt_project(project_root):
+        return "django-matt"
+    return "django-ninja"
+
+
 def _detect_frontend_framework(project_root: Path) -> str:
     """Detect frontend framework: tanstack, nextjs, vite, or rsbuild."""
     frontend = project_root / "frontend"
@@ -548,6 +557,162 @@ def _generate_api_controller(
 
 # Keep old name as alias so existing callers don't break
 _generate_api_router = _generate_api_controller
+
+
+def _generate_django_matt_service(
+    name: str,
+    fields: list[tuple[str, str, str | None]],
+    app_name: str,
+) -> str:
+    """Generate a django-matt CRUDService for a model."""
+    pascal = _to_pascal(name)
+    snake = _to_snake(name)
+
+    str_fields = [fname for fname, ftype, _ in fields if ftype in ("str", "text", "email")]
+    search_field = str_fields[0] if str_fields else None
+    search_line = (
+        f'    search_fields = ["{search_field}"]'
+        if search_field
+        else '    search_fields: list[str] = []'
+    )
+
+    return "\n".join([
+        f'"""CRUDService for {pascal}."""',
+        "",
+        "from __future__ import annotations",
+        "",
+        "from django_matt.services import CRUDService",
+        "",
+        f"from apps.{app_name}.models.{snake} import {pascal}",
+        f"from apps.{app_name}.schemas.{snake} import (",
+        f"    {pascal}CreateSchema,",
+        f"    {pascal}ResponseSchema,",
+        f"    {pascal}UpdateSchema,",
+        ")",
+        "",
+        "",
+        f"class {pascal}Service(CRUDService):",
+        f"    model = {pascal}",
+        f"    create_schema = {pascal}CreateSchema",
+        f"    update_schema = {pascal}UpdateSchema",
+        f"    response_schema = {pascal}ResponseSchema",
+        search_line,
+        "",
+    ])
+
+
+def _generate_django_matt_controller(
+    name: str,
+    fields: list[tuple[str, str, str | None]],
+    app_name: str,
+) -> str:
+    """Generate a django-matt APIController with CRUD endpoints."""
+    pascal = _to_pascal(name)
+    snake = _to_snake(name)
+
+    str_fields = [fname for fname, ftype, _ in fields if ftype in ("str", "text", "email")]
+    search_filter = f'qs.filter({str_fields[0]}__icontains=search)' if str_fields else "qs.filter(id__icontains=search)"
+
+    return "\n".join([
+        f'"""APIController for {pascal}."""',
+        "",
+        "from __future__ import annotations",
+        "",
+        "from uuid import UUID",
+        "",
+        "from django.shortcuts import get_object_or_404",
+        "from django_matt import APIController, delete, get, post, put",
+        "from django_matt.auth import JWTAuth, OptionalJWTAuth",
+        "",
+        f"from apps.{app_name}.models.{snake} import {pascal}",
+        f"from apps.{app_name}.schemas.{snake} import (",
+        f"    {pascal}CreateSchema,",
+        f"    {pascal}ResponseSchema,",
+        f"    {pascal}UpdateSchema,",
+        ")",
+        f"from apps.{app_name}.services.{snake} import {pascal}Service",
+        "",
+        "",
+        f"class {pascal}Controller(APIController):",
+        f'    prefix = "/{snake}s"',
+        f'    tags = ["{pascal}"]',
+        "",
+        f'    @get("/", response=list[{pascal}ResponseSchema])',
+        f"    def list_{snake}s(self, request, search: str | None = None, limit: int = 20, offset: int = 0):",
+        f'        """List {pascal}s with optional search and pagination."""',
+        f"        qs = {pascal}.objects.all()",
+        "        if search:",
+        f"            qs = {search_filter}",
+        "        return qs[offset:offset + limit]",
+        "",
+        f'    @get("/{{{snake}_id}}", response={pascal}ResponseSchema, auth=OptionalJWTAuth())',
+        f"    def get_{snake}(self, request, {snake}_id: UUID):",
+        f'        """Get a single {pascal}."""',
+        f"        return get_object_or_404({pascal}, id={snake}_id)",
+        "",
+        f'    @post("/", response={pascal}ResponseSchema, auth=JWTAuth(), status=201)',
+        f"    def create_{snake}(self, request, payload: {pascal}CreateSchema):",
+        f'        """Create a new {pascal}."""',
+        f"        return {pascal}Service().create(payload)",
+        "",
+        f'    @put("/{{{snake}_id}}", response={pascal}ResponseSchema, auth=JWTAuth())',
+        f"    def update_{snake}(self, request, {snake}_id: UUID, payload: {pascal}UpdateSchema):",
+        f'        """Update a {pascal}."""',
+        f"        return {pascal}Service().update({snake}_id, payload)",
+        "",
+        f'    @delete("/{{{snake}_id}}", auth=JWTAuth(), status=204)',
+        f"    def delete_{snake}(self, request, {snake}_id: UUID):",
+        f'        """Delete a {pascal}."""',
+        f"        {pascal}Service().delete({snake}_id)",
+        "        return None",
+        "",
+    ])
+
+
+def _generate_django_matt_endpoint_method(
+    path: str,
+    method: str,
+    auth: bool,
+) -> str:
+    """Generate a single django-matt controller method."""
+    method_lower = method.lower()
+    func_name = re.sub(r"[{}/<>]", "", path).strip("/").replace("/", "_").replace("-", "_")
+    if not func_name:
+        func_name = "root"
+
+    auth_param = f", auth=JWTAuth()" if auth else ""
+    decorator = f'    @{method_lower}("{path}"{auth_param})'
+
+    return "\n".join([
+        decorator,
+        f"    def {func_name}(self, request):",
+        f'        """Handle {method} {path}."""',
+        '        return {"message": "Not implemented"}',
+        "",
+    ])
+
+
+def _generate_django_matt_controller_file(segment: str, endpoint_method: str, auth: bool) -> str:
+    """Generate a full django-matt controller file wrapping a single method."""
+    pascal = _to_pascal(segment)
+    auth_import = "\nfrom django_matt.auth import JWTAuth" if auth else ""
+
+    return (
+        '"""APIController."""\n'
+        "\n"
+        "from __future__ import annotations\n"
+        "\n"
+        "from django_matt import APIController, delete, get, post, put\n"
+        f"{auth_import}\n"
+        "\n"
+        "\n"
+        f"class {pascal}Controller(APIController):\n"
+        f'    prefix = "/{segment}s"\n'
+        f'    tags = ["{pascal}"]\n'
+        "\n"
+        + endpoint_method
+        + "\n"
+    )
 
 
 def _generate_endpoint_method(
@@ -1062,10 +1227,12 @@ def model(
         typer.Option("--dry-run", help="Preview without creating files"),
     ] = False,
 ) -> None:
-    """Generate a Django model + ninja schema + ninja-extra controller."""
+    """Generate a Django model + schema + controller (ninja-extra or django-matt)."""
     start = time.monotonic()
     project_root = _find_project_root(path or Path.cwd())
     app_name = _detect_django_app(project_root, app)
+    backend_fw = _detect_backend_framework(project_root)
+    is_django_matt = backend_fw == "django-matt"
 
     if not fields and not empty:
         print_error("No --fields given. Pass at least one field or use --empty to allow an empty model.")
@@ -1090,7 +1257,8 @@ def model(
                     raise typer.Exit(code=1)
 
     if dry_run:
-        print_info(f"[dry-run] Would generate model '{pascal}' in app '{app_name}'")
+        style_label = "django-matt" if is_django_matt else "ninja-extra"
+        print_info(f"[dry-run] Would generate model '{pascal}' in app '{app_name}' ({style_label})")
 
     if not backend.is_dir() and not dry_run:
         print_error(f"No backend/ directory found at {project_root}")
@@ -1116,12 +1284,22 @@ def model(
     _write_file(schema_file, _generate_pydantic_schema(name, parsed), dry_run=dry_run)
     created.append(schema_file)
 
-    # Controller file
+    # Controller file (django-matt or ninja-extra)
     api_dir = backend / "apps" / app_name / "api"
     api_file = api_dir / f"{snake}.py"
     _ensure_dir(api_dir, dry_run=dry_run)
     _ensure_init(api_dir, dry_run=dry_run)
-    _write_file(api_file, _generate_api_controller(name, parsed, app_name), dry_run=dry_run)
+    if is_django_matt:
+        _write_file(api_file, _generate_django_matt_controller(name, parsed, app_name), dry_run=dry_run)
+        # Also write CRUDService
+        service_dir = backend / "apps" / app_name / "services"
+        service_file = service_dir / f"{snake}.py"
+        _ensure_dir(service_dir, dry_run=dry_run)
+        _ensure_init(service_dir, dry_run=dry_run)
+        _write_file(service_file, _generate_django_matt_service(name, parsed, app_name), dry_run=dry_run)
+        created.append(service_file)
+    else:
+        _write_file(api_file, _generate_api_controller(name, parsed, app_name), dry_run=dry_run)
     created.append(api_file)
 
     # --- Auto-wiring ---
@@ -1201,7 +1379,7 @@ def endpoint(
         typer.Option("--dry-run", help="Preview without creating files"),
     ] = False,
 ) -> None:
-    """Generate a ninja-extra API endpoint method."""
+    """Generate an API endpoint method (ninja-extra or django-matt)."""
     start = time.monotonic()
     method = method.upper()
     if method not in ("GET", "POST", "PUT", "PATCH", "DELETE"):
@@ -1210,6 +1388,8 @@ def endpoint(
 
     project_root = _find_project_root(path or Path.cwd())
     app_name = _detect_django_app(project_root, app)
+    backend_fw = _detect_backend_framework(project_root)
+    is_django_matt = backend_fw == "django-matt"
 
     segment = route_path.strip("/").split("/")[0].replace("-", "_")
     if not segment:
@@ -1219,7 +1399,10 @@ def endpoint(
     api_dir = backend / "apps" / app_name / "api"
     controller_file = api_dir / f"{segment}.py"
 
-    endpoint_method = _generate_endpoint_method(route_path, method, auth)
+    if is_django_matt:
+        endpoint_method = _generate_django_matt_endpoint_method(route_path, method, auth)
+    else:
+        endpoint_method = _generate_endpoint_method(route_path, method, auth)
 
     if dry_run:
         print_info(f"[dry-run] Would add {method} {route_path} to {controller_file}")
@@ -1235,7 +1418,10 @@ def endpoint(
             controller_file.write_text(existing + "\n" + endpoint_method)
             print_success(f"Appended {method} {route_path} to {controller_file}")
         else:
-            _write_file(controller_file, _generate_controller_file(segment, endpoint_method, auth), dry_run=False)
+            if is_django_matt:
+                _write_file(controller_file, _generate_django_matt_controller_file(segment, endpoint_method, auth), dry_run=False)
+            else:
+                _write_file(controller_file, _generate_controller_file(segment, endpoint_method, auth), dry_run=False)
             print_success(f"Created {controller_file}")
 
     elapsed = time.monotonic() - start

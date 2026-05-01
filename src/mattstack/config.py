@@ -19,6 +19,11 @@ class Variant(str, Enum):
     B2B = "b2b"
 
 
+class BackendFramework(str, Enum):
+    DJANGO_NINJA = "django-ninja"
+    DJANGO_MATT = "django-matt"
+
+
 class FrontendFramework(str, Enum):
     REACT_VITE = "react-vite"
     REACT_VITE_STARTER = "react-vite-starter"
@@ -42,6 +47,7 @@ class DeploymentTarget(str, Enum):
 
 REPO_URLS: dict[str, str] = {
     "django-ninja": "https://github.com/mattjaikaran/django-ninja-boilerplate.git",
+    "django-matt": "https://github.com/mattjaikaran/django-matt-boilerplate.git",
     "react-vite": "https://github.com/mattjaikaran/react-vite-boilerplate.git",
     "react-vite-starter": "https://github.com/mattjaikaran/react-vite-starter.git",
     "react-rsbuild": "https://github.com/mattjaikaran/react-rsbuild-boilerplate.git",
@@ -84,6 +90,7 @@ class ProjectConfig:
     project_type: ProjectType = ProjectType.FULLSTACK
     variant: Variant = Variant.STARTER
     frontend_framework: FrontendFramework = FrontendFramework.REACT_VITE
+    backend_framework: BackendFramework = BackendFramework.DJANGO_NINJA
     include_ios: bool = False
     use_celery: bool = True
     use_redis: bool = True
@@ -149,8 +156,12 @@ class ProjectConfig:
         return self.frontend_framework == FrontendFramework.NEXTJS
 
     @property
+    def is_django_matt(self) -> bool:
+        return self.backend_framework == BackendFramework.DJANGO_MATT
+
+    @property
     def backend_repo_key(self) -> str:
-        return "django-ninja"
+        return self.backend_framework.value
 
     @property
     def frontend_repo_key(self) -> str:

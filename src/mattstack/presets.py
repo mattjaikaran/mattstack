@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from mattstack.config import (
+    BackendFramework,
     FrontendFramework,
     ProjectConfig,
     ProjectType,
@@ -22,6 +23,7 @@ class Preset:
     project_type: ProjectType
     variant: Variant
     frontend_framework: FrontendFramework = FrontendFramework.REACT_VITE
+    backend_framework: BackendFramework = BackendFramework.DJANGO_NINJA
     include_ios: bool = False
     use_celery: bool = True
 
@@ -32,6 +34,7 @@ class Preset:
             project_type=self.project_type,
             variant=self.variant,
             frontend_framework=self.frontend_framework,
+            backend_framework=self.backend_framework,
             include_ios=self.include_ios,
             use_celery=self.use_celery,
         )
@@ -122,6 +125,27 @@ PRESETS: dict[str, Preset] = {
         frontend_framework=FrontendFramework.NEXTJS,
         use_celery=False,
     ),
+    "matt-api": Preset(
+        name="matt-api",
+        description="django-matt API only (MattAPI controllers, CRUDService, Postgres)",
+        project_type=ProjectType.BACKEND_ONLY,
+        variant=Variant.STARTER,
+        backend_framework=BackendFramework.DJANGO_MATT,
+    ),
+    "matt-fullstack": Preset(
+        name="matt-fullstack",
+        description="Fullstack monorepo (django-matt + React Vite)",
+        project_type=ProjectType.FULLSTACK,
+        variant=Variant.STARTER,
+        backend_framework=BackendFramework.DJANGO_MATT,
+    ),
+    "matt-b2b-fullstack": Preset(
+        name="matt-b2b-fullstack",
+        description="B2B fullstack monorepo (django-matt + React Vite, orgs/teams/roles)",
+        project_type=ProjectType.FULLSTACK,
+        variant=Variant.B2B,
+        backend_framework=BackendFramework.DJANGO_MATT,
+    ),
 }
 
 
@@ -149,6 +173,9 @@ def get_all_presets() -> dict[str, Preset]:
                     variant=Variant(data.get("variant", "starter")),
                     frontend_framework=FrontendFramework(
                         data.get("frontend_framework", "react-vite")
+                    ),
+                    backend_framework=BackendFramework(
+                        data.get("backend_framework", "django-ninja")
                     ),
                     include_ios=data.get("include_ios", False),
                     use_celery=data.get("use_celery", True),

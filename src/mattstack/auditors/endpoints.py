@@ -8,7 +8,15 @@ from collections import Counter
 from pathlib import Path
 
 from mattstack.auditors.base import AuditFinding, AuditType, BaseAuditor, Severity
-from mattstack.parsers.django_routes import Route, find_route_files, parse_routes_file
+from mattstack.parsers.django_routes import (
+    DjangoMattController,
+    Route,
+    find_django_matt_controller_files,
+    find_route_files,
+    is_django_matt_project,
+    parse_django_matt_controller_file,
+    parse_routes_file,
+)
 from mattstack.parsers.nextjs_routes import (
     NextjsRoute,
     find_nextjs_app_dirs,
@@ -22,9 +30,10 @@ class EndpointAuditor(BaseAuditor):
     def run(self) -> list[AuditFinding]:
         project = self.config.project_path
         routes = self._parse_all_routes(project)
+        matt_controllers = self._parse_django_matt_controllers(project)
         nextjs_routes = self._parse_nextjs_routes(project)
 
-        if not routes and not nextjs_routes:
+        if not routes and not matt_controllers and not nextjs_routes:
             self.add_finding(
                 Severity.INFO,
                 Path("."),
@@ -41,6 +50,9 @@ class EndpointAuditor(BaseAuditor):
             self._check_auth(routes)
             self._check_naming(routes)
 
+        if matt_controllers:
+            self._check_django_matt_controllers(matt_controllers)
+
         if nextjs_routes:
             self._check_nextjs_api_routes(nextjs_routes)
 
@@ -55,11 +67,45 @@ class EndpointAuditor(BaseAuditor):
             routes.extend(parse_routes_file(f))
         return routes
 
+    def _parse_django_matt_controllers(self, project: Path) -> list[DjangoMattController]:
+        if not is_django_matt_project(project):
+            return []
+        controllers: list[DjangoMattController] = []
+        for f in find_django_matt_controller_files(project):
+            controllers.extend(parse_django_matt_controller_file(f))
+        return controllers
+
     def _parse_nextjs_routes(self, project: Path) -> list[NextjsRoute]:
         routes: list[NextjsRoute] = []
         for app_dir in find_nextjs_app_dirs(project):
             routes.extend(parse_nextjs_routes(app_dir))
         return routes
+
+    def _check_django_matt_controllers(self, controllers: list[DjangoMattController]) -> None:
+        """Audit django-matt APIController endpoints for auth and naming."""
+        write_methods = {"POST", "PUT", "DELETE", "PATCH"}
+
+        for ctrl in controllers:
+            for ep in ctrl.endpoints:
+                full_path = ctrl.prefix.rstrip("/") + "/" + ep.path.lstrip("/")
+
+                if ep.method in write_methods and not ep.auth:
+                    self.add_finding(
+                        Severity.WARNING,
+                        self._rel(ctrl.file),
+                        ctrl.line,
+                        f"No auth on write endpoint: {ep.method} {full_path} ({ep.handler})",
+                        "Add auth=JWTAuth() to protect write operations",
+                    )
+
+                if not full_path.startswith("/"):
+                    self.add_finding(
+                        Severity.INFO,
+                        self._rel(ctrl.file),
+                        ctrl.line,
+                        f"Route path missing leading slash: '{full_path}'",
+                        f"Use '/{full_path}' for consistency",
+                    )
 
     def _check_nextjs_api_routes(self, routes: list[NextjsRoute]) -> None:
         """Audit Next.js API routes for stubs and missing auth."""
