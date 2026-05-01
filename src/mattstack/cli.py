@@ -8,6 +8,7 @@ from typing import Annotated
 import typer
 
 from mattstack.commands.client import client_app
+from mattstack.commands.context import context_app
 
 app = typer.Typer(
     name="mattstack",
@@ -17,6 +18,7 @@ app = typer.Typer(
 )
 
 app.add_typer(client_app, name="client")
+app.add_typer(context_app, name="context")
 
 
 def _register_subgroups() -> None:
@@ -417,26 +419,6 @@ def rules(
 
     run_rules(path=path or Path.cwd(), gsd=gsd, dry_run=dry_run, force=force)
 
-
-@app.command()
-def context(
-    path: Annotated[
-        Path | None,
-        typer.Argument(help="Project path (default: current directory)"),
-    ] = None,
-    json_output: Annotated[
-        bool,
-        typer.Option("--json", help="Output as JSON instead of markdown"),
-    ] = False,
-    output: Annotated[
-        str | None,
-        typer.Option("--output", "-o", help="Write context to a file"),
-    ] = None,
-) -> None:
-    """Dump project context for AI agents (Claude, Cursor, etc.)."""
-    from mattstack.commands.context import run_context
-
-    run_context(path=path or Path.cwd(), json_output=json_output, output_file=output)
 
 
 @app.command()
