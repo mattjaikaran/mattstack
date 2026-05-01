@@ -422,3 +422,179 @@ def test_crud_command_with_tests_creates_test_file(tmp_path: Path) -> None:
     assert test_file.exists()
     content = test_file.read_text()
     assert "test_list_products_returns_200" in content
+
+
+# ---------------------------------------------------------------------------
+# Phase 21: E2E — generate model wires admin + models/__init__.py
+# ---------------------------------------------------------------------------
+
+
+def test_model_command_creates_admin_file(tmp_path: Path) -> None:
+    """generate model must create admin/{snake}_admin.py."""
+    _make_backend(tmp_path)
+    (tmp_path / "backend" / "apps" / "core" / "models").mkdir(parents=True, exist_ok=True)
+
+    from mattstack.commands.generate import model as model_cmd
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    app.command()(model_cmd)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["Product", "--fields", "title:str", "--path", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    admin_file = tmp_path / "backend" / "apps" / "core" / "admin" / "product_admin.py"
+    assert admin_file.exists(), "admin/product_admin.py was not created"
+    content = admin_file.read_text()
+    assert "ProductAdmin" in content
+    assert "@admin.register(Product)" in content
+
+
+def test_model_command_updates_models_init(tmp_path: Path) -> None:
+    """generate model must append import to models/__init__.py."""
+    _make_backend(tmp_path)
+    (tmp_path / "backend" / "apps" / "core" / "models").mkdir(parents=True, exist_ok=True)
+
+    from mattstack.commands.generate import model as model_cmd
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    app.command()(model_cmd)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["Widget", "--fields", "name:str", "--path", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    init_file = tmp_path / "backend" / "apps" / "core" / "models" / "__init__.py"
+    assert init_file.exists()
+    assert "from .widget import Widget" in init_file.read_text()
+
+
+def test_model_command_updates_admin_init(tmp_path: Path) -> None:
+    """generate model must append admin import to admin/__init__.py."""
+    _make_backend(tmp_path)
+    (tmp_path / "backend" / "apps" / "core" / "models").mkdir(parents=True, exist_ok=True)
+
+    from mattstack.commands.generate import model as model_cmd
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    app.command()(model_cmd)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["Order", "--fields", "total:decimal", "--path", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    admin_init = tmp_path / "backend" / "apps" / "core" / "admin" / "__init__.py"
+    assert admin_init.exists()
+    assert "from .order_admin import OrderAdmin" in admin_init.read_text()
+
+
+# ---------------------------------------------------------------------------
+# Phase 21: Integration — generate crud output is syntactically valid Python
+# ---------------------------------------------------------------------------
+
+
+def test_crud_output_python_files_parse_without_syntax_errors(tmp_path: Path) -> None:
+    """All generated Python files must be parseable by ast.parse."""
+    import ast
+
+    _make_backend(tmp_path)
+    (tmp_path / "backend" / "apps" / "core" / "models").mkdir(parents=True, exist_ok=True)
+
+    from mattstack.commands.generate import crud as crud_cmd
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    app.command()(crud_cmd)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["Product", "--fields", "name:str", "--path", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+
+    backend = tmp_path / "backend" / "apps" / "core"
+    python_files = [
+        backend / "models" / "product.py",
+        backend / "schemas" / "product.py",
+        backend / "api" / "product.py",
+        backend / "admin" / "product_admin.py",
+    ]
+    for py_file in python_files:
+        assert py_file.exists(), f"{py_file.name} was not created"
+        try:
+            ast.parse(py_file.read_text())
+        except SyntaxError as exc:
+            pytest.fail(f"SyntaxError in {py_file.name}: {exc}")
+
+
+def test_crud_output_ts_files_are_non_empty(tmp_path: Path) -> None:
+    """Generated TypeScript files must be non-empty and contain expected exports."""
+    _make_backend(tmp_path)
+    (tmp_path / "backend" / "apps" / "core" / "models").mkdir(parents=True, exist_ok=True)
+    frontend = tmp_path / "frontend" / "src"
+    frontend.mkdir(parents=True)
+
+    from mattstack.commands.generate import crud as crud_cmd
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    app.command()(crud_cmd)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["Product", "--fields", "name:str", "--path", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+
+    api_file = frontend / "api" / "product.ts"
+    hooks_file = frontend / "hooks" / "useProducts.ts"
+    assert api_file.exists(), "frontend/src/api/product.ts not created"
+    assert hooks_file.exists(), "frontend/src/hooks/useProducts.ts not created"
+
+    api_content = api_file.read_text()
+    assert "export" in api_content
+    assert "Product" in api_content
+
+    hooks_content = hooks_file.read_text()
+    assert "export" in hooks_content
+    assert "useProductList" in hooks_content
+
+
+# ---------------------------------------------------------------------------
+# Phase 21: Regression — model_dump() not dict() in generated controller
+# ---------------------------------------------------------------------------
+
+
+def test_crud_creates_controller_with_model_dump_not_dict(tmp_path: Path) -> None:
+    """Regression: generated controller must use .model_dump() not .dict()."""
+    _make_backend(tmp_path)
+
+    from mattstack.commands.generate import crud as crud_cmd
+    from typer.testing import CliRunner
+
+    app = typer.Typer()
+    app.command()(crud_cmd)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["Item", "--fields", "label:str", "--path", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+
+    api_file = tmp_path / "backend" / "apps" / "core" / "api" / "item.py"
+    assert api_file.exists()
+    content = api_file.read_text()
+    assert "model_dump()" in content
+    assert ".dict(" not in content
