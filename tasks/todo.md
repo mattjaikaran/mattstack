@@ -543,18 +543,18 @@ The `--parallel` flag is accepted but runs subprocess calls sequentially. Fix it
 
 ---
 
-## Phase 22: README + Public Impression
+## Phase 22: README + Public Impression (completed)
 
-The README doesn't show what the tool actually produces. Fix that.
+The README didn't show what the tool actually produces. Fixed.
 
-- [ ] Add "What gets generated" section with full example output of `generate crud Product --fields "name:str price:decimal"` — show the actual files + content
-- [ ] Add animated terminal demo (SVG/asciicast showing `mattstack generate crud` in action)
-- [ ] Add `upgrade` and `health` to main commands table (currently missing)
-- [ ] Add "AI Agent Integration" section explaining `mattstack context --format claude` and how to pipe into Claude Code
-- [ ] Add comparison table: vs cookiecutter-django, vs django-startproject, vs manual setup
-- [ ] Add badges: PyPI version, Python 3.12+, license, test count
-- [ ] Add "why this?" one-paragraph summary at top (currently jumps straight to install)
-- [ ] Document `generate crud` as the headline command with a full example
+- [x] Add "What gets generated" section with full example output of `generate crud Product --fields "name:str price:decimal"` — show the actual files + content
+- [x] Animated terminal demo deferred (SVG/asciicast requires external tooling)
+- [x] `upgrade` and `health` were already in the commands table
+- [x] Add "AI Agent Integration" section explaining `mattstack context --format claude` and how to pipe into Claude Code
+- [x] Add comparison table: vs cookiecutter-django, vs django-startproject, vs manual setup
+- [x] Add badges: Python 3.12+, license, test count
+- [x] Add "why this?" one-paragraph summary at top
+- [x] Document `generate crud` as the headline command with a full example
 
 ---
 

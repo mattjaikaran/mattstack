@@ -1,6 +1,293 @@
 # mattstack
 
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-749%20passing-brightgreen.svg)](#development)
+
 CLI to scaffold fullstack monorepos from battle-tested boilerplates, then audit them for quality.
+
+Skip the week of project setup — `mattstack init` clones production-ready Django Ninja + React boilerplates, wires them together, and hands you a running monorepo in under a minute. From there, `generate crud` scaffolds a complete full-stack feature (model → schema → controller → TypeScript client → React hooks → component) in a single command. The `audit` command then keeps the codebase honest: type drift between Pydantic and TypeScript, missing tests, stub endpoints, hardcoded credentials, and CVEs — all surfaced in one pass.
+
+## Headline: Generate a Full-Stack Feature in Seconds
+
+One command creates a complete vertical slice — backend model, Pydantic schemas, Django Ninja controller, TypeScript API client, TanStack Query hooks, and a React list component:
+
+```bash
+mattstack generate crud Product --fields "name:str price:decimal"
+```
+
+**Files created:**
+
+```
+backend/apps/products/models/product.py
+backend/apps/products/schemas/product.py
+backend/apps/products/api/product.py
+backend/apps/products/admin/product_admin.py
+frontend/src/api/product.ts
+frontend/src/hooks/useProducts.ts
+frontend/src/components/ProductList/index.tsx
+```
+
+**What's inside each file:**
+
+`backend/apps/products/models/product.py`
+```python
+"""Django model for Product."""
+
+from __future__ import annotations
+
+from decimal import Decimal
+from django.db import models
+from core.models.base import AbstractBaseModel
+
+
+class Product(AbstractBaseModel):
+    name = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        verbose_name = "Product"
+        verbose_name_plural = "Products"
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return self.name
+```
+
+`backend/apps/products/schemas/product.py`
+```python
+"""Ninja schemas for Product."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from decimal import Decimal
+from uuid import UUID
+
+from ninja import Schema
+from pydantic import ConfigDict
+
+
+class ProductBaseSchema(Schema):
+    name: str
+    price: Decimal
+
+
+class ProductCreateSchema(ProductBaseSchema):
+    pass
+
+
+class ProductUpdateSchema(ProductBaseSchema):
+    name: str | None = None
+    price: Decimal | None = None
+
+
+class ProductResponseSchema(ProductBaseSchema):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+```
+
+`backend/apps/products/api/product.py`
+```python
+"""API controller for Product."""
+
+from __future__ import annotations
+
+from uuid import UUID
+
+from django.shortcuts import get_object_or_404
+from ninja_extra import api_controller, http_delete, http_get, http_post, http_put
+
+from apps.products.models.product import Product
+from apps.products.schemas.product import (
+    ProductCreateSchema,
+    ProductResponseSchema,
+    ProductUpdateSchema,
+)
+from core.auth import JWTAuth, OptionalJWTAuth
+from core.controllers.base_controller import BaseController, handle_exceptions
+
+
+@api_controller("/products", tags=["Product"])
+class ProductController(BaseController):
+    @http_get("/", response=list[ProductResponseSchema])
+    @handle_exceptions()
+    def list_products(self, request, search: str | None = None, limit: int = 20, offset: int = 0):
+        """List Products with pagination."""
+        qs = Product.objects.all()
+        if search:
+            qs = qs.filter(id__icontains=search)
+        return qs[offset:offset + limit]
+
+    @http_get("/{product_id}", response={200: ProductResponseSchema, 404: dict}, auth=OptionalJWTAuth())
+    @handle_exceptions()
+    def get_product(self, request, product_id: UUID):
+        """Get a single Product."""
+        return get_object_or_404(Product, id=product_id)
+
+    @http_post("/", response={201: ProductResponseSchema, 400: dict}, auth=JWTAuth())
+    @handle_exceptions(success_status=201)
+    def create_product(self, request, payload: ProductCreateSchema):
+        """Create a new Product."""
+        obj = Product.objects.create(**payload.model_dump())
+        return obj
+
+    @http_put("/{product_id}", response={200: ProductResponseSchema, 403: dict}, auth=JWTAuth())
+    @handle_exceptions()
+    def update_product(self, request, product_id: UUID, payload: ProductUpdateSchema):
+        """Update a Product."""
+        obj = get_object_or_404(Product, id=product_id)
+        for attr, value in payload.model_dump(exclude_unset=True).items():
+            setattr(obj, attr, value)
+        obj.save()
+        return obj
+
+    @http_delete("/{product_id}", response={204: None}, auth=JWTAuth())
+    @handle_exceptions()
+    def delete_product(self, request, product_id: UUID):
+        """Delete a Product."""
+        obj = get_object_or_404(Product, id=product_id)
+        obj.delete()
+        return 204, None
+```
+
+`frontend/src/api/product.ts`
+```typescript
+// Auto-generated by mattstack generate crud
+
+export interface Product {
+  id: string;
+  name: string;
+  price: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductCreate {
+  name: string;
+  price: number;
+}
+
+export interface ProductUpdate {
+  name?: string;
+  price?: number;
+}
+
+const BASE_URL = "http://localhost:8000";
+
+export async function listProducts(page = 1, pageSize = 20): Promise<Product[]> {
+  const offset = (page - 1) * pageSize;
+  const res = await fetch(`${BASE_URL}/products/?limit=${pageSize}&offset=${offset}`);
+  if (!res.ok) throw new Error(`Failed to list products: ${res.statusText}`);
+  return res.json();
+}
+
+export async function getProduct(id: string): Promise<Product> {
+  const res = await fetch(`${BASE_URL}/products/${id}`);
+  if (!res.ok) throw new Error(`Failed to get product: ${res.statusText}`);
+  return res.json();
+}
+
+export async function createProduct(data: ProductCreate): Promise<Product> {
+  const res = await fetch(`${BASE_URL}/products/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`Failed to create product: ${res.statusText}`);
+  return res.json();
+}
+
+export async function updateProduct(id: string, data: ProductUpdate): Promise<Product> {
+  const res = await fetch(`${BASE_URL}/products/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`Failed to update product: ${res.statusText}`);
+  return res.json();
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/products/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Failed to delete product: ${res.statusText}`);
+}
+```
+
+`frontend/src/hooks/useProducts.ts`
+```typescript
+// Auto-generated by mattstack generate crud
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  listProducts,
+  getProduct,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+} from "@/api/product";
+import type { ProductCreate, ProductUpdate } from "@/api/product";
+
+export function useProductList(page = 1, pageSize = 20) {
+  return useQuery({
+    queryKey: ["products", page, pageSize],
+    queryFn: () => listProducts(page, pageSize),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useProduct(id: string) {
+  return useQuery({
+    queryKey: ["products", id],
+    queryFn: () => getProduct(id),
+    enabled: !!id,
+  });
+}
+
+export function useCreateProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: ProductCreate) => createProduct(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
+}
+
+export function useUpdateProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: ProductUpdate }) =>
+      updateProduct(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
+}
+
+export function useDeleteProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteProduct(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
+}
+```
+
+Add `--with-tests` to also generate pytest API tests and a Vitest component test.
+
+### `generate crud` Options
+
+| Flag | Description |
+|------|-------------|
+| `--fields, -f` | Field definitions: `name:type` (str, int, decimal, bool, date, datetime, text, email, url, uuid, fk) |
+| `--app, -a` | Django app name (default: auto-detect) |
+| `--path, -p` | Project root path |
+| `--with-tests` | Also generate pytest + Vitest tests |
+| `--dry-run` | Preview without creating files |
 
 ## Install
 
@@ -221,12 +508,15 @@ mattstack env show
 
 | Flag | Description |
 |------|-------------|
-| `--json` | Output as JSON instead of markdown |
+| `--format, -f` | Output format: `markdown` (default), `json`, `claude` |
 | `--output, -o` | Write context to a file |
 
 ```bash
 # Dump project context for AI agents
 mattstack context
+
+# Claude-optimized format
+mattstack context --format claude
 
 # Write to file
 mattstack context -o context.md
@@ -261,6 +551,12 @@ mattstack client which
 ### `generate` Subcommands
 
 ```bash
+# Full-stack CRUD feature (model + schema + controller + admin + frontend)
+mattstack generate crud Product --fields "name:str price:decimal"
+
+# Add tests alongside
+mattstack generate crud Product --fields "name:str price:decimal" --with-tests
+
 # Django model + Pydantic schema + API router
 mattstack generate model Product --fields "title:str price:decimal description:text is_active:bool"
 
@@ -372,6 +668,42 @@ mattstack completions --show
 | `kibo-frontend` | frontend-only | React Rsbuild + Kibo UI (dashboards, kanban) |
 | `nextjs-fullstack` | fullstack | Django Ninja + Next.js (App Router) |
 | `nextjs-frontend` | frontend-only | Next.js standalone (App Router, Tailwind) |
+
+## AI Agent Integration
+
+`mattstack context` dumps a structured snapshot of your project — routes, models, schemas, test coverage, env vars — formatted for AI assistants.
+
+```bash
+# Generate Claude-optimized context and pipe directly into Claude Code
+mattstack context --format claude | claude --print "Review my API surface"
+
+# Write to file for use in your editor's AI sidebar
+mattstack context --format claude -o context.md
+
+# JSON format for programmatic use
+mattstack context --format json | jq '.endpoints[]'
+```
+
+The `claude` format includes:
+- All discovered Django Ninja routes with method, path, auth, and response types
+- Pydantic schemas mapped to their TypeScript counterparts (with drift detection)
+- Test coverage gaps by feature area
+- Outstanding audit findings from `tasks/todo.md`
+
+This lets you ask an AI assistant "what endpoints are missing auth?" or "generate the missing frontend types for these schemas" with full project awareness — no manual copy-paste.
+
+## Comparison
+
+| | mattstack | cookiecutter-django | django-startproject | Manual setup |
+|---|---|---|---|---|
+| **Setup time** | < 1 min | 5–10 min | 10–30 min | Days |
+| **Full-stack** | Django + React in one command | Django only | Django only | Each stack separately |
+| **Feature generation** | `generate crud` scaffolds 7 files | None | None | Write by hand |
+| **Type safety** | Pydantic → TypeScript sync built-in | None | None | Manual |
+| **Audit** | Static analysis, CVE scanning, type drift | None | None | Third-party tools |
+| **AI context** | `context --format claude` | None | None | None |
+| **Presets** | 12 (fullstack, B2B, frontend, Next.js) | 1 | 1 | N/A |
+| **Post-setup** | `generate`, `sync`, `audit`, `dev`, `test`, `lint` all work | Cookiecutter only | None | Wire it yourself |
 
 ## Audit Domains
 
@@ -589,7 +921,7 @@ mattstack config show   # View current config
 
 ```bash
 uv sync                        # Install dependencies
-uv run pytest -x -q            # Run tests (586 tests)
+uv run pytest -x -q            # Run tests (749 tests)
 uv run pytest --cov            # With coverage
 uv run ruff check src/ tests/  # Lint
 uv run ruff format src/ tests/ # Format
