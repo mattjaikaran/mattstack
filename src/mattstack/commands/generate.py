@@ -205,6 +205,77 @@ def _ensure_init(directory: Path, *, dry_run: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Auto-wiring helpers
+# ---------------------------------------------------------------------------
+
+
+def _update_init_import(init_file: Path, import_line: str, *, dry_run: bool) -> bool:
+    """Append an import line to __init__.py if not already present. Returns True if added."""
+    if dry_run:
+        console.print(f"  [dim]Would update:[/dim] {init_file}")
+        return True
+
+    init_file.parent.mkdir(parents=True, exist_ok=True)
+    existing = init_file.read_text() if init_file.exists() else ""
+    if import_line in existing:
+        return False
+    if existing and not existing.endswith("\n"):
+        existing += "\n"
+    init_file.write_text(existing + import_line + "\n")
+    return True
+
+
+def _generate_admin_file(pascal: str, snake: str, app_name: str, fields: list[tuple[str, str, str | None]]) -> str:
+    """Generate a per-model unfold admin file."""
+    str_fields = [fname for fname, ftype, _ in fields if ftype in ("str", "text", "email")]
+    list_display_fields = str_fields[:3] if str_fields else []
+    list_display = '["id"' + "".join(f', "{f}"' for f in list_display_fields) + ', "created_at"]'
+
+    return f'''"""Admin configuration for {pascal}."""
+
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+
+from apps.{app_name}.models.{snake} import {pascal}
+
+
+@admin.register({pascal})
+class {pascal}Admin(ModelAdmin):
+    list_display = {list_display}
+    list_filter = ("created_at",)
+    search_fields = {tuple(list_display_fields) if list_display_fields else ('("id",)'[:-2] + '"id")')!r}
+    readonly_fields = ("id", "created_at", "updated_at")
+'''
+
+
+def _build_admin_file(pascal: str, snake: str, app_name: str, fields: list[tuple[str, str, str | None]]) -> str:
+    """Build per-model unfold admin file content."""
+    str_fields = [fname for fname, ftype, _ in fields if ftype in ("str", "text", "email")]
+    display_fields = str_fields[:3]
+    list_display_items = ["id"] + display_fields + ["created_at"]
+    list_display = "[" + ", ".join(f'"{f}"' for f in list_display_items) + "]"
+    search_fields: list[str] = display_fields if display_fields else ["id"]
+    search_tuple = "(" + ", ".join(f'"{f}"' for f in search_fields) + ("," if len(search_fields) == 1 else "") + ")"
+
+    return (
+        f'"""Admin configuration for {pascal}."""\n'
+        "\n"
+        "from django.contrib import admin\n"
+        "from unfold.admin import ModelAdmin\n"
+        "\n"
+        f"from apps.{app_name}.models.{snake} import {pascal}\n"
+        "\n"
+        "\n"
+        f"@admin.register({pascal})\n"
+        f"class {pascal}Admin(ModelAdmin):\n"
+        f"    list_display = {list_display}\n"
+        f'    list_filter = ("created_at",)\n'
+        f"    search_fields = {search_tuple}\n"
+        f'    readonly_fields = ("id", "created_at", "updated_at")\n'
+    )
+
+
+# ---------------------------------------------------------------------------
 # Code generators
 # ---------------------------------------------------------------------------
 
@@ -213,12 +284,9 @@ def _generate_django_model(
     name: str,
     fields: list[tuple[str, str, str | None]],
 ) -> str:
-    """Generate Django model source code."""
+    """Generate Django model source code using AbstractBaseModel."""
     pascal = _to_pascal(name)
-    imports: list[str] = ["from django.db import models"]
     needs_uuid = any(ft == "uuid" for _, ft, _ in fields)
-    if needs_uuid:
-        imports.append("import uuid")
 
     fk_models: list[str] = []
     for _, ft, fk_target in fields:
@@ -226,7 +294,7 @@ def _generate_django_model(
             fk_models.append(fk_target)
 
     lines = [
-        '"""Django model for {name}."""'.format(name=pascal),
+        f'"""Django model for {pascal}."""',
         "",
         "from __future__ import annotations",
         "",
@@ -235,6 +303,7 @@ def _generate_django_model(
         lines.append("import uuid")
         lines.append("")
     lines.append("from django.db import models")
+    lines.append("from core.models.base import AbstractBaseModel")
 
     if fk_models:
         lines.append("")
@@ -245,7 +314,7 @@ def _generate_django_model(
     lines.extend([
         "",
         "",
-        f"class {pascal}(models.Model):",
+        f"class {pascal}(AbstractBaseModel):",
     ])
 
     if not fields:
@@ -263,9 +332,6 @@ def _generate_django_model(
 
     lines.extend([
         "",
-        "    created_at = models.DateTimeField(auto_now_add=True)",
-        "    updated_at = models.DateTimeField(auto_now=True)",
-        "",
         "    class Meta:",
         f'        verbose_name = "{pascal}"',
         f'        verbose_name_plural = "{pascal}s"',
@@ -274,7 +340,6 @@ def _generate_django_model(
         "    def __str__(self) -> str:",
     ])
 
-    # Pick a sensible __str__ field
     str_field = "pk"
     for fname, ftype, _ in fields:
         if ftype in ("str", "text", "email"):
@@ -294,29 +359,27 @@ def _generate_pydantic_schema(
     name: str,
     fields: list[tuple[str, str, str | None]],
 ) -> str:
-    """Generate Pydantic schema source code."""
+    """Generate ninja Schema source code following BaseSchema/Create/Update/Response pattern."""
     pascal = _to_pascal(name)
     type_imports: set[str] = set()
-    pydantic_imports: set[str] = {"BaseModel"}
+    ninja_imports: set[str] = {"Schema"}
 
     for _, ftype, _ in fields:
-        if ftype == "fk":
+        if ftype in ("fk", "uuid"):
             type_imports.add("UUID")
-        elif ftype in ("uuid",):
-            type_imports.add("UUID")
-        elif ftype in ("date",):
+        elif ftype == "date":
             type_imports.add("date")
-        elif ftype in ("datetime",):
+        elif ftype == "datetime":
             type_imports.add("datetime")
-        elif ftype in ("decimal",):
+        elif ftype == "decimal":
             type_imports.add("Decimal")
         elif ftype == "email":
-            pydantic_imports.add("EmailStr")
+            ninja_imports.add("EmailStr")
         elif ftype == "url":
-            pydantic_imports.add("HttpUrl")
+            ninja_imports.add("HttpUrl")
 
     lines = [
-        f'"""Pydantic schemas for {pascal}."""',
+        f'"""Ninja schemas for {pascal}."""',
         "",
         "from __future__ import annotations",
         "",
@@ -328,156 +391,209 @@ def _generate_pydantic_schema(
     datetime_types = sorted(type_imports & {"date", "datetime"})
     if datetime_types:
         stdlib_imports.append(f"from datetime import {', '.join(datetime_types)}")
-    if "UUID" in type_imports:
-        stdlib_imports.append("from uuid import UUID")
+    if "UUID" not in type_imports:
+        # ResponseSchema always needs UUID and datetime
+        pass
+    stdlib_imports.append("from datetime import datetime")
+    stdlib_imports.append("from uuid import UUID")
 
-    if stdlib_imports:
-        lines.extend(sorted(stdlib_imports))
+    # Deduplicate and sort
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for imp in stdlib_imports:
+        if imp not in seen:
+            seen.add(imp)
+            deduped.append(imp)
+    if deduped:
+        lines.extend(sorted(deduped))
         lines.append("")
 
-    lines.append(f"from pydantic import {', '.join(sorted(pydantic_imports))}")
+    lines.append("from ninja import Schema")
+    lines.append("from pydantic import ConfigDict")
+    if ninja_imports - {"Schema"}:
+        lines[-1] = "from ninja import " + ", ".join(sorted(ninja_imports))
+        lines.append("from pydantic import ConfigDict")
+    lines.append("")
+
+    def _field_lines(optional: bool = False) -> list[str]:
+        result = []
+        if not fields:
+            result.append("    pass")
+        else:
+            for fname, ftype, _ in fields:
+                py_type = "UUID" if ftype == "fk" else PYDANTIC_TYPE_MAP[ftype]
+                if optional:
+                    result.append(f"    {fname}: {py_type} | None = None")
+                else:
+                    result.append(f"    {fname}: {py_type}")
+        return result
+
+    # BaseSchema
+    lines.extend([
+        "",
+        f"class {pascal}BaseSchema(Schema):",
+    ])
+    lines.extend(_field_lines())
+
+    # CreateSchema
     lines.extend([
         "",
         "",
-        f"class {pascal}Schema(BaseModel):",
+        f"class {pascal}CreateSchema({pascal}BaseSchema):",
+        "    pass",
     ])
 
+    # UpdateSchema
+    lines.extend([
+        "",
+        "",
+        f"class {pascal}UpdateSchema({pascal}BaseSchema):",
+    ])
     if not fields:
         lines.append("    pass")
     else:
         for fname, ftype, _ in fields:
-            if ftype == "fk":
-                py_type = "UUID"
-            else:
-                py_type = PYDANTIC_TYPE_MAP[ftype]
-            lines.append(f"    {fname}: {py_type}")
+            py_type = "UUID" if ftype == "fk" else PYDANTIC_TYPE_MAP[ftype]
+            lines.append(f"    {fname}: {py_type} | None = None")
 
+    # ResponseSchema
     lines.extend([
         "",
         "",
-        f"class {pascal}CreateSchema(BaseModel):",
+        f"class {pascal}ResponseSchema({pascal}BaseSchema):",
+        "    id: UUID",
+        "    created_at: datetime",
+        "    updated_at: datetime",
+        "    model_config = ConfigDict(from_attributes=True)",
     ])
-
-    if not fields:
-        lines.append("    pass")
-    else:
-        for fname, ftype, _ in fields:
-            if ftype == "fk":
-                py_type = "UUID"
-            else:
-                py_type = PYDANTIC_TYPE_MAP[ftype]
-            lines.append(f"    {fname}: {py_type}")
-
-    lines.extend([
-        "",
-        "",
-        f"class {pascal}UpdateSchema(BaseModel):",
-    ])
-
-    if not fields:
-        lines.append("    pass")
-    else:
-        for fname, ftype, _ in fields:
-            if ftype == "fk":
-                py_type = "UUID | None"
-            else:
-                py_type = f"{PYDANTIC_TYPE_MAP[ftype]} | None"
-            lines.append(f"    {fname}: {py_type} = None")
 
     lines.append("")
     return "\n".join(lines)
 
 
-def _generate_api_router(
+def _generate_api_controller(
     name: str,
     fields: list[tuple[str, str, str | None]],
     app_name: str,
 ) -> str:
-    """Generate Django Ninja router with CRUD endpoints."""
+    """Generate ninja-extra class-based controller with CRUD endpoints."""
     pascal = _to_pascal(name)
     snake = _to_snake(name)
 
     lines = [
-        f'"""API endpoints for {pascal}."""',
+        f'"""API controller for {pascal}."""',
         "",
         "from __future__ import annotations",
         "",
+        "from uuid import UUID",
+        "",
         "from django.shortcuts import get_object_or_404",
-        "from ninja import Router",
+        "from ninja_extra import api_controller, http_delete, http_get, http_post, http_put",
         "",
         f"from apps.{app_name}.models.{snake} import {pascal}",
         f"from apps.{app_name}.schemas.{snake} import (",
         f"    {pascal}CreateSchema,",
-        f"    {pascal}Schema,",
+        f"    {pascal}ResponseSchema,",
         f"    {pascal}UpdateSchema,",
         ")",
-        "",
-        f'router = Router(tags=["{pascal}"])',
-        "",
-        "",
-        f'@router.get("/{snake}s", response=list[{pascal}Schema])',
-        f"def list_{snake}s(request):",
-        f'    """List all {pascal}s."""',
-        f"    return {pascal}.objects.all()",
+        "from core.auth import JWTAuth, OptionalJWTAuth",
+        "from core.controllers.base_controller import BaseController, handle_exceptions",
         "",
         "",
-        f'@router.get("/{snake}s/{{id}}", response={pascal}Schema)',
-        f"def get_{snake}(request, id: int):",
-        f'    """Get a single {pascal}."""',
-        f"    return get_object_or_404({pascal}, id=id)",
+        f'@api_controller("/{snake}s", tags=["{pascal}"])',
+        f"class {pascal}Controller(BaseController):",
+        f'    @http_get("/", response=list[{pascal}ResponseSchema])',
+        "    @handle_exceptions()",
+        f"    def list_{snake}s(self, request, search: str | None = None, limit: int = 20, offset: int = 0):",
+        f'        """List {pascal}s with pagination."""',
+        f"        qs = {pascal}.objects.all()",
+        "        if search:",
+        f"            qs = qs.filter(id__icontains=search)",
+        "        return qs[offset:offset + limit]",
         "",
+        f'    @http_get("/{{{snake}_id}}", response={{200: {pascal}ResponseSchema, 404: dict}}, auth=OptionalJWTAuth())',
+        "    @handle_exceptions()",
+        f"    def get_{snake}(self, request, {snake}_id: UUID):",
+        f'        """Get a single {pascal}."""',
+        f"        return get_object_or_404({pascal}, id={snake}_id)",
         "",
-        f'@router.post("/{snake}s", response={pascal}Schema)',
-        f"def create_{snake}(request, payload: {pascal}CreateSchema):",
-        f'    """Create a new {pascal}."""',
-        f"    obj = {pascal}.objects.create(**payload.dict())",
-        "    return obj",
+        f'    @http_post("/", response={{201: {pascal}ResponseSchema, 400: dict}}, auth=JWTAuth())',
+        "    @handle_exceptions(success_status=201)",
+        f"    def create_{snake}(self, request, payload: {pascal}CreateSchema):",
+        f'        """Create a new {pascal}."""',
+        f"        obj = {pascal}.objects.create(**payload.model_dump())",
+        "        return obj",
         "",
+        f'    @http_put("/{{{snake}_id}}", response={{200: {pascal}ResponseSchema, 403: dict}}, auth=JWTAuth())',
+        "    @handle_exceptions()",
+        f"    def update_{snake}(self, request, {snake}_id: UUID, payload: {pascal}UpdateSchema):",
+        f'        """Update a {pascal}."""',
+        f"        obj = get_object_or_404({pascal}, id={snake}_id)",
+        "        for attr, value in payload.model_dump(exclude_unset=True).items():",
+        "            setattr(obj, attr, value)",
+        "        obj.save()",
+        "        return obj",
         "",
-        f'@router.put("/{snake}s/{{id}}", response={pascal}Schema)',
-        f"def update_{snake}(request, id: int, payload: {pascal}UpdateSchema):",
-        f'    """Update a {pascal}."""',
-        f"    obj = get_object_or_404({pascal}, id=id)",
-        "    for attr, value in payload.dict(exclude_unset=True).items():",
-        "        setattr(obj, attr, value)",
-        "    obj.save()",
-        "    return obj",
-        "",
-        "",
-        f'@router.delete("/{snake}s/{{id}}")',
-        f"def delete_{snake}(request, id: int):",
-        f'    """Delete a {pascal}."""',
-        f"    obj = get_object_or_404({pascal}, id=id)",
-        "    obj.delete()",
-        '    return {"success": True}',
+        f'    @http_delete("/{{{snake}_id}}", response={{204: None}}, auth=JWTAuth())',
+        "    @handle_exceptions()",
+        f"    def delete_{snake}(self, request, {snake}_id: UUID):",
+        f'        """Delete a {pascal}."""',
+        f"        obj = get_object_or_404({pascal}, id={snake}_id)",
+        "        obj.delete()",
+        "        return 204, None",
         "",
     ]
     return "\n".join(lines)
 
 
-def _generate_endpoint(
+# Keep old name as alias so existing callers don't break
+_generate_api_router = _generate_api_controller
+
+
+def _generate_endpoint_method(
     path: str,
     method: str,
     auth: bool,
-    app_name: str,
 ) -> str:
-    """Generate a single Django Ninja endpoint function."""
+    """Generate a single ninja-extra controller method."""
     method_lower = method.lower()
-    # Derive function name from path: /products/{id}/reviews -> products_id_reviews
     func_name = re.sub(r"[{}/<>]", "", path).strip("/").replace("/", "_").replace("-", "_")
     if not func_name:
         func_name = "root"
 
-    auth_param = ", auth=django_auth" if auth else ""
+    auth_param = f", auth=JWTAuth()" if auth else ""
+    decorator = f'    @http_{method_lower}("{path}"{auth_param})'
 
-    lines = [
-        f'@router.{method_lower}("{path}"{auth_param})',
-        f"def {func_name}(request):",
-        f'    """Handle {method} {path}."""',
-        '    return {"message": "Not implemented"}',
+    return "\n".join([
+        decorator,
+        "    @handle_exceptions()",
+        f"    def {func_name}(self, request):",
+        f'        """Handle {method} {path}."""',
+        '        return {"message": "Not implemented"}',
         "",
-    ]
-    return "\n".join(lines)
+    ])
+
+
+def _generate_controller_file(segment: str, endpoint_method: str, auth: bool) -> str:
+    """Generate a full controller file wrapping a single method."""
+    pascal = _to_pascal(segment)
+    auth_import = "\nfrom core.auth import JWTAuth" if auth else ""
+
+    header = (
+        '"""API controller."""\n'
+        "\n"
+        "from __future__ import annotations\n"
+        "\n"
+        "from ninja_extra import api_controller, http_delete, http_get, http_post, http_put\n"
+        f"{auth_import}\n"
+        "from core.controllers.base_controller import BaseController, handle_exceptions\n"
+        "\n"
+        "\n"
+        f'@api_controller("/{segment}s", tags=["{pascal}"])\n'
+        f"class {pascal}Controller(BaseController):\n"
+    )
+    # Indent the method body (already indented by _generate_endpoint_method)
+    return header + endpoint_method + "\n"
 
 
 def _generate_react_component(name: str) -> str:
@@ -561,7 +677,6 @@ def _generate_nextjs_page(name: str) -> str:
 
 def _generate_hook(name: str) -> str:
     """Generate a React custom hook."""
-    # Ensure name starts with 'use'
     if not name.startswith("use"):
         name = f"use{_to_pascal(name)}"
 
@@ -613,28 +728,52 @@ def model(
         Path | None,
         typer.Option("--path", "-p", help="Project root path"),
     ] = None,
+    empty: Annotated[
+        bool,
+        typer.Option("--empty", help="Allow model with no fields"),
+    ] = False,
     dry_run: Annotated[
         bool,
         typer.Option("--dry-run", help="Preview without creating files"),
     ] = False,
 ) -> None:
-    """Generate a Django model + Pydantic schema + API router."""
+    """Generate a Django model + ninja schema + ninja-extra controller."""
     start = time.monotonic()
     project_root = _find_project_root(path or Path.cwd())
     app_name = _detect_django_app(project_root, app)
+
+    if not fields and not empty:
+        print_error("No --fields given. Pass at least one field or use --empty to allow an empty model.")
+        raise typer.Exit(code=1)
+
     parsed = _parse_fields(fields or [])
     pascal = _to_pascal(name)
     snake = _to_snake(name)
 
+    # Validate FK targets exist in the backend models directory
+    backend = project_root / "backend"
+    if backend.is_dir() and not dry_run:
+        for fname, ftype, fk_target in parsed:
+            if ftype == "fk" and fk_target:
+                target_snake = _to_snake(fk_target)
+                target_file = backend / "apps" / app_name / "models" / f"{target_snake}.py"
+                if not target_file.exists():
+                    print_error(
+                        f"FK target '{fk_target}' not found: {target_file}\n"
+                        f"Generate it first with: mattstack generate model {fk_target} --fields ..."
+                    )
+                    raise typer.Exit(code=1)
+
     if dry_run:
         print_info(f"[dry-run] Would generate model '{pascal}' in app '{app_name}'")
 
-    backend = project_root / "backend"
     if not backend.is_dir() and not dry_run:
         print_error(f"No backend/ directory found at {project_root}")
         raise typer.Exit(code=1)
 
     created: list[Path] = []
+    updated: list[Path] = []
+    wiring_warnings: list[str] = []
 
     # Model file
     model_dir = backend / "apps" / app_name / "models"
@@ -652,23 +791,64 @@ def model(
     _write_file(schema_file, _generate_pydantic_schema(name, parsed), dry_run=dry_run)
     created.append(schema_file)
 
-    # API router
+    # Controller file
     api_dir = backend / "apps" / app_name / "api"
     api_file = api_dir / f"{snake}.py"
     _ensure_dir(api_dir, dry_run=dry_run)
     _ensure_init(api_dir, dry_run=dry_run)
-    _write_file(api_file, _generate_api_router(name, parsed, app_name), dry_run=dry_run)
+    _write_file(api_file, _generate_api_controller(name, parsed, app_name), dry_run=dry_run)
     created.append(api_file)
 
+    # --- Auto-wiring ---
+
+    # models/__init__.py
+    models_init = model_dir / "__init__.py"
+    import_line = f"from .{snake} import {pascal}"
+    if _update_init_import(models_init, import_line, dry_run=dry_run):
+        updated.append(models_init)
+
+    # admin/{snake}_admin.py + admin/__init__.py
+    admin_dir = backend / "apps" / app_name / "admin"
+    admin_file = admin_dir / f"{snake}_admin.py"
+    _ensure_dir(admin_dir, dry_run=dry_run)
+    _ensure_init(admin_dir, dry_run=dry_run)
+    _write_file(admin_file, _build_admin_file(pascal, snake, app_name, parsed), dry_run=dry_run)
+    created.append(admin_file)
+
+    admin_init = admin_dir / "__init__.py"
+    admin_import = f"from .{snake}_admin import {pascal}Admin"
+    if _update_init_import(admin_init, admin_import, dry_run=dry_run):
+        updated.append(admin_init)
+
+    # api/urls.py — best-effort register_controllers update
+    urls_file = backend / "api" / "urls.py"
+    if not dry_run and urls_file.exists():
+        urls_text = urls_file.read_text()
+        if "register_controllers" in urls_text and f"{pascal}Controller" not in urls_text:
+            wiring_warnings.append(
+                f"Register {pascal}Controller in {urls_file}: "
+                f"add it to api.register_controllers(...)"
+            )
+        elif "register_controllers" not in urls_text:
+            wiring_warnings.append(f"Wire {pascal}Controller in {urls_file} manually.")
+    elif not dry_run:
+        wiring_warnings.append(f"No api/urls.py found — register {pascal}Controller manually.")
+
+    # Output
     if not dry_run:
         for f in created:
             print_success(f"Created {f}")
+        for f in updated:
+            print_success(f"Updated {f}")
 
     elapsed = time.monotonic() - start
     console.print(
-        f"\n[bold]Run migrations:[/bold] "
-        f"cd backend && uv run python manage.py makemigrations && uv run python manage.py migrate"
+        f"\n[bold]Next steps:[/bold]\n"
+        f"  cd backend && uv run python manage.py makemigrations && uv run python manage.py migrate"
     )
+    if wiring_warnings:
+        for w in wiring_warnings:
+            print_warning(w)
     console.print(f"[dim]Completed in {elapsed:.2f}s[/dim]")
 
 
@@ -696,7 +876,7 @@ def endpoint(
         typer.Option("--dry-run", help="Preview without creating files"),
     ] = False,
 ) -> None:
-    """Generate a Django Ninja API endpoint."""
+    """Generate a ninja-extra API endpoint method."""
     start = time.monotonic()
     method = method.upper()
     if method not in ("GET", "POST", "PUT", "PATCH", "DELETE"):
@@ -706,50 +886,32 @@ def endpoint(
     project_root = _find_project_root(path or Path.cwd())
     app_name = _detect_django_app(project_root, app)
 
-    # Derive router filename from the first path segment
     segment = route_path.strip("/").split("/")[0].replace("-", "_")
     if not segment:
         segment = "root"
 
     backend = project_root / "backend"
     api_dir = backend / "apps" / app_name / "api"
-    router_file = api_dir / f"{segment}.py"
+    controller_file = api_dir / f"{segment}.py"
 
-    endpoint_code = _generate_endpoint(route_path, method, auth, app_name)
+    endpoint_method = _generate_endpoint_method(route_path, method, auth)
 
     if dry_run:
-        print_info(f"[dry-run] Would add {method} {route_path} to {router_file}")
-        console.print(f"\n[dim]{endpoint_code}[/dim]")
+        print_info(f"[dry-run] Would add {method} {route_path} to {controller_file}")
+        console.print(f"\n[dim]{endpoint_method}[/dim]")
     else:
         _ensure_dir(api_dir, dry_run=False)
         _ensure_init(api_dir, dry_run=False)
 
-        if router_file.exists():
-            # Append to existing router file
-            existing = router_file.read_text()
+        if controller_file.exists():
+            existing = controller_file.read_text()
             if not existing.endswith("\n"):
                 existing += "\n"
-            router_file.write_text(existing + "\n" + endpoint_code)
-            print_success(f"Appended {method} {route_path} to {router_file}")
+            controller_file.write_text(existing + "\n" + endpoint_method)
+            print_success(f"Appended {method} {route_path} to {controller_file}")
         else:
-            # Create new router file with imports
-            header = (
-                '"""API endpoints."""\n'
-                "\n"
-                "from __future__ import annotations\n"
-                "\n"
-                "from ninja import Router\n"
-            )
-            if auth:
-                header += "from ninja.security import django_auth\n"
-            header += (
-                "\n"
-                f'router = Router(tags=["{segment}"])\n'
-                "\n"
-                "\n"
-            )
-            _write_file(router_file, header + endpoint_code, dry_run=False)
-            print_success(f"Created {router_file}")
+            _write_file(controller_file, _generate_controller_file(segment, endpoint_method, auth), dry_run=False)
+            print_success(f"Created {controller_file}")
 
     elapsed = time.monotonic() - start
     console.print(f"[dim]Completed in {elapsed:.2f}s[/dim]")
@@ -879,7 +1041,6 @@ def hook(
     start = time.monotonic()
     project_root = _find_project_root(project_path or Path.cwd())
 
-    # Normalize hook name
     hook_name = name if name.startswith("use") else f"use{_to_pascal(name)}"
 
     frontend = project_root / "frontend"
@@ -888,7 +1049,6 @@ def hook(
         raise typer.Exit(code=1)
 
     hook_dir = frontend / hook_path
-    # Filename: useProducts -> useProducts.ts
     hook_file = hook_dir / f"{hook_name}.ts"
 
     if dry_run:
@@ -922,7 +1082,7 @@ def schema(
         typer.Option("--dry-run", help="Preview without creating files"),
     ] = False,
 ) -> None:
-    """Generate a Pydantic schema (without Django model)."""
+    """Generate ninja schemas (Base/Create/Update/Response) without a Django model."""
     start = time.monotonic()
     project_root = _find_project_root(path or Path.cwd())
     app_name = _detect_django_app(project_root, app)
@@ -939,7 +1099,7 @@ def schema(
     schema_file = schema_dir / f"{snake}.py"
 
     if dry_run:
-        print_info(f"[dry-run] Would create schema '{pascal}Schema' in app '{app_name}'")
+        print_info(f"[dry-run] Would create schemas for '{pascal}' in app '{app_name}'")
 
     _ensure_dir(schema_dir, dry_run=dry_run)
     _ensure_init(schema_dir, dry_run=dry_run)
