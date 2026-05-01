@@ -507,21 +507,16 @@ Tasks:
 
 ---
 
-## Phase 19: `sync api-client` Mutations + Pagination
+## Phase 19: `sync api-client` Mutations + Pagination (completed)
 
-Complete the sync pipeline so generated hooks are production-ready.
-
-### Current state: only generates `useQuery` hooks for GET endpoints
-
-### What's missing:
-- [ ] Generate `useMutation` hooks for POST/PUT/DELETE endpoints from parsed routes
-- [ ] Infer request body types from `{Model}CreateSchema` / `{Model}UpdateSchema` naming convention
-- [ ] Generate `invalidateQueries({ queryKey: ['{snake}s'] })` in mutation `onSuccess`
-- [ ] Generate paginated list variant: `use{Pascal}List(page, pageSize)` with `keepPreviousData`
-- [ ] Generate proper `ApiError` interface for typed error handling
-- [ ] Add `--base-url` flag override (currently hardcoded `http://localhost:8000`)
-- [ ] Tests for mutation hook generation
-- [ ] Tests for pagination hook generation
+- `useMutation` hooks for POST/PUT/DELETE/PATCH with `useQueryClient` + `onSuccess` invalidation
+- Infer request body types from `{Model}CreateSchema` / `{Model}UpdateSchema` naming convention
+- `invalidateQueries({ queryKey: ['{snake}s'] })` in mutation `onSuccess`
+- Paginated list variant: `use{Pascal}List(page, pageSize)` with `keepPreviousData`
+- `ApiError` interface exported in generated file
+- `--base-url` flag override (defaults to `http://localhost:8000`)
+- Dynamic TanStack Query imports (useQueryClient, keepPreviousData) only when needed
+- 25 tests (691 total)
 
 ---
 

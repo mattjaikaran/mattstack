@@ -227,8 +227,21 @@ def _infer_response_type(route: Route) -> str | None:
     return None
 
 
-def _route_to_hook(route: Route, known_types: set[str]) -> str | None:
-    """Generate a TanStack Query hook from a Route."""
+API_ERROR_INTERFACE = """\
+export interface ApiError {
+  message: string
+  status: number
+  detail?: string | Record<string, string[]>
+}"""
+
+
+def _pascal_to_snake(name: str) -> str:
+    """Convert PascalCase to snake_case (e.g. Product → product, OrderItem → order_item)."""
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+
+
+def _route_to_hooks(route: Route, known_types: set[str]) -> list[str]:
+    """Generate TanStack Query hooks from a Route. Returns 1-2 hooks (list → also paginated)."""
     response_type = _infer_response_type(route)
     func_name = route.function_name
     hook_name = "use" + "".join(part.capitalize() for part in func_name.split("_"))
@@ -238,15 +251,15 @@ def _route_to_hook(route: Route, known_types: set[str]) -> str | None:
     path_params = re.findall(r"\{(\w+)\}", path)
     ts_path = re.sub(r"\{(\w+)\}", r"${\1}", path) if path_params else path
 
-    # Parameter signature
     param_sig = ", ".join(f"{p}: string" for p in path_params)
     path_expr = f"`{ts_path}`" if path_params else f"'{path}'"
 
+    hooks: list[str] = []
+
     if route.method == "GET":
+        is_list = func_name.startswith("list_")
         type_annotation = ""
         if response_type and response_type in known_types:
-            # list_ prefix → array response
-            is_list = func_name.startswith("list_")
             type_annotation = f"<{response_type}{'[]' if is_list else ''}>"
 
         query_key = [f"'{func_name}'"]
@@ -262,45 +275,76 @@ def _route_to_hook(route: Route, known_types: set[str]) -> str | None:
             "  })",
             "}",
         ]
-        return "\n".join(lines)
+        hooks.append("\n".join(lines))
 
-    # POST, PUT, DELETE, PATCH → useMutation
-    mutation_method = route.method.lower()
-    # Try to infer input type (e.g. create_user → UserCreate)
-    input_type: str | None = None
-    if response_type and route.method in ("POST", "PUT", "PATCH"):
-        for suffix in ("Create", "Update", "Input"):
-            candidate = f"{response_type}{suffix}"
-            if candidate in known_types:
-                input_type = candidate
-                break
+        # Paginated variant for list endpoints (only when type is known)
+        if is_list and response_type and response_type in known_types:
+            resource_snake = func_name[len("list_"):]  # e.g. "products"
+            paginated_name = f"use{response_type}List"
+            base_path = path.rstrip("/")
+            paginated_path = f"{base_path}/?page=${{page}}&page_size=${{pageSize}}"
+            paginated_lines = [
+                f"export function {paginated_name}(page: number = 1, pageSize: number = 20) {{",
+                "  return useQuery({",
+                f"    queryKey: ['{resource_snake}', page, pageSize],",
+                f"    queryFn: () => apiClient.get{type_annotation}(`{paginated_path}`).then(r => r.data),",
+                "    placeholderData: keepPreviousData,",
+                "  })",
+                "}",
+            ]
+            hooks.append("\n".join(paginated_lines))
 
-    type_annotation = ""
-    if response_type and response_type in known_types:
-        type_annotation = f"<{response_type}>"
-
-    data_param = f"data: {input_type}" if input_type else "data: unknown"
-    all_params = [data_param] + [f"{p}: string" for p in path_params]
-    full_sig = ", ".join(all_params)
-
-    if route.method == "DELETE":
-        lines = [
-            f"export function {hook_name}({param_sig}) {{",
-            "  return useMutation({",
-            f"    mutationFn: () => apiClient.delete({path_expr}),",
-            "  })",
-            "}",
-        ]
     else:
-        lines = [
-            f"export function {hook_name}({full_sig}) {{",
-            "  return useMutation({",
-            f"    mutationFn: () => apiClient.{mutation_method}{type_annotation}"
-            f"({path_expr}, data).then(r => r.data),",
-            "  })",
-            "}",
-        ]
-    return "\n".join(lines)
+        # POST, PUT, DELETE, PATCH → useMutation with onSuccess invalidation
+        mutation_method = route.method.lower()
+
+        # Infer request body type from CreateSchema/UpdateSchema naming conventions
+        input_type: str | None = None
+        if response_type and route.method in ("POST", "PUT", "PATCH"):
+            for suffix in ("CreateSchema", "UpdateSchema", "Create", "Update", "Input"):
+                candidate = f"{response_type}{suffix}"
+                if candidate in known_types:
+                    input_type = candidate
+                    break
+
+        type_annotation = ""
+        if response_type and response_type in known_types:
+            type_annotation = f"<{response_type}>"
+
+        # Derive cache key to invalidate (e.g. Product → 'products')
+        invalidate_key = f"'{_pascal_to_snake(response_type)}s'" if response_type else "''"
+
+        if route.method == "DELETE":
+            lines = [
+                f"export function {hook_name}({param_sig}) {{",
+                "  const queryClient = useQueryClient()",
+                "  return useMutation({",
+                f"    mutationFn: () => apiClient.delete({path_expr}),",
+                "    onSuccess: () => {",
+                f"      queryClient.invalidateQueries({{ queryKey: [{invalidate_key}] }})",
+                "    },",
+                "  })",
+                "}",
+            ]
+        else:
+            data_param = f"data: {input_type}" if input_type else "data: unknown"
+            all_params = [data_param] + [f"{p}: string" for p in path_params]
+            full_sig = ", ".join(all_params)
+            lines = [
+                f"export function {hook_name}({full_sig}) {{",
+                "  const queryClient = useQueryClient()",
+                "  return useMutation({",
+                f"    mutationFn: () => apiClient.{mutation_method}{type_annotation}"
+                f"({path_expr}, data).then(r => r.data),",
+                "    onSuccess: () => {",
+                f"      queryClient.invalidateQueries({{ queryKey: [{invalidate_key}] }})",
+                "    },",
+                "  })",
+                "}",
+            ]
+        hooks.append("\n".join(lines))
+
+    return hooks
 
 
 def _write_output(content: str, output_path: Path, dry_run: bool) -> None:
@@ -405,6 +449,10 @@ def sync_api_client(
         str | None,
         typer.Option("--output", "-o", help="Output file path"),
     ] = None,
+    base_url: Annotated[
+        str,
+        typer.Option("--base-url", help="API base URL for generated client"),
+    ] = "http://localhost:8000",
     dry_run: Annotated[
         bool,
         typer.Option("--dry-run", help="Preview without writing"),
@@ -419,34 +467,43 @@ def sync_api_client(
         print_warning("No routes found in backend")
         raise typer.Exit(code=0)
 
-    # Collect known schema names for type annotations
     schemas = _collect_schemas(project_path)
     known_types = {s.name for s in schemas}
 
-    # Figure out which types are actually referenced
     hooks: list[str] = []
     referenced_types: set[str] = set()
+    has_mutations = False
+    has_paginated = False
 
     for route in routes:
         if route.is_stub:
             continue
-        hook = _route_to_hook(route, known_types)
-        if hook:
+        route_hooks = _route_to_hooks(route, known_types)
+        for hook in route_hooks:
             hooks.append(hook)
-            # Track referenced types
             for t in known_types:
                 if t in hook:
                     referenced_types.add(t)
+            if "useMutation" in hook:
+                has_mutations = True
+            if "keepPreviousData" in hook:
+                has_paginated = True
 
     if not hooks:
         print_warning("No non-stub routes found to generate hooks")
         raise typer.Exit(code=0)
 
-    # Build imports
+    tanstack_imports = ["useQuery"]
+    if has_mutations:
+        tanstack_imports.extend(["useMutation", "useQueryClient"])
+    if has_paginated:
+        tanstack_imports.append("keepPreviousData")
+
     import_lines = [
         API_HEADER,
+        f"// Base URL: {base_url}",
         "",
-        "import { useQuery, useMutation } from '@tanstack/react-query'",
+        f"import {{ {', '.join(tanstack_imports)} }} from '@tanstack/react-query'",
         "import { apiClient } from '@/api/client'",
     ]
     if referenced_types:
@@ -454,7 +511,7 @@ def sync_api_client(
         type_imports = ", ".join(sorted_types)
         import_lines.append(f"import type {{ {type_imports} }} from '@/types/generated'")
 
-    import_lines.append("")
+    import_lines.extend(["", API_ERROR_INTERFACE, ""])
 
     content = "\n".join(import_lines) + "\n" + "\n\n".join(hooks) + "\n"
     output_path = (
@@ -515,29 +572,40 @@ def sync_all(
     known_types = {s.name for s in schemas} if schemas else set()
     hooks: list[str] = []
     referenced_types: set[str] = set()
+    has_mutations = False
+    has_paginated = False
 
     for route in routes:
         if route.is_stub:
             continue
-        hook = _route_to_hook(route, known_types)
-        if hook:
+        for hook in _route_to_hooks(route, known_types):
             hooks.append(hook)
             for t in known_types:
                 if t in hook:
                     referenced_types.add(t)
+            if "useMutation" in hook:
+                has_mutations = True
+            if "keepPreviousData" in hook:
+                has_paginated = True
 
     if hooks:
+        tanstack_imports = ["useQuery"]
+        if has_mutations:
+            tanstack_imports.extend(["useMutation", "useQueryClient"])
+        if has_paginated:
+            tanstack_imports.append("keepPreviousData")
+
         import_lines = [
             API_HEADER,
             "",
-            "import { useQuery, useMutation } from '@tanstack/react-query'",
+            f"import {{ {', '.join(tanstack_imports)} }} from '@tanstack/react-query'",
             "import { apiClient } from '@/api/client'",
         ]
         if referenced_types:
             sorted_types = sorted(referenced_types)
             type_imports = ", ".join(sorted_types)
             import_lines.append(f"import type {{ {type_imports} }} from '@/types/generated'")
-        import_lines.append("")
+        import_lines.extend(["", API_ERROR_INTERFACE, ""])
 
         content = "\n".join(import_lines) + "\n" + "\n\n".join(hooks) + "\n"
         api_path = project_path / "frontend" / "src" / "api" / "generated.ts"
