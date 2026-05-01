@@ -543,6 +543,35 @@ src/mattstack/
 └── utils/               # console, git, docker, process, yaml_config
 ```
 
+## Roadmap: django-matt + Mateus
+
+First-class support for [django-matt](https://github.com/mattjaikaran/django-matt) and [mateus](https://github.com/mattjaikaran/mateus) is planned across three phases:
+
+| Phase | What | Status |
+|-------|------|--------|
+| **15A** | django-matt backend support — `BackendFramework` enum, `django-matt-boilerplate` repo, updated generators/parsers/type sync | Unblocked (django-matt v0.9.0 on PyPI) |
+| **15B** | Mateus frontend support — `FrontendFramework.REACT_MATEUS`, `react-mateus-boilerplate` repo, mateus as package manager/dev server/test runner/linter | Blocked (mateus not yet published) |
+| **15C** | `matt-fullstack` preset — django-matt + React SSR via mateus, dockerized with Postgres + Redis + Celery | Blocked on 15A + 15B |
+
+### Upcoming Presets
+
+| Preset | Type | Description |
+|--------|------|-------------|
+| `matt-api` | backend-only | django-matt API (replaces django-ninja ecosystem) |
+| `matt-fullstack` | fullstack | django-matt + React Mateus (SSR) |
+| `matt-b2b-fullstack` | fullstack | django-matt B2B + React Mateus (SSR) |
+| `mateus-fullstack` | fullstack | Django Ninja + React Mateus |
+| `mateus-frontend` | frontend-only | React Mateus standalone |
+
+### What Changes
+
+- **Backend**: `django-matt` replaces `django-ninja` + `django-ninja-extra` + `django-ninja-jwt` as a single meta-framework (54+ modules, JWT/OAuth/WebSockets/billing built-in)
+- **Frontend**: `mateus` replaces `bun` + `vite` as a single Rust binary (runtime, bundler, test runner, linter, package manager, SSR engine)
+- **Type sync**: django-matt has built-in `sync_types` CLI — mattstack wraps or delegates to it
+- **Generators**: `generate model` outputs django-matt controllers + `CRUDService` instead of ninja routers
+- **Audit**: endpoint auditor recognizes django-matt controller decorators (`@get`, `@post` on `APIController`)
+- **Client commands**: `mateus install`, `mateus add`, `mateus dev`, `mateus test`, `mateus lint`, `mateus fmt`
+
 ## Ecosystem
 
 mattstack is extensible -- bring your own boilerplates, presets, and audit plugins.

@@ -200,3 +200,417 @@
 - `NAME_CONVERTERS` dict needs language pair entries
 - Tests for each new parser, generator, and preset
 
+---
+
+## Phase 16: Generator Correctness + Real Pattern Alignment
+
+Audit of real apps (music-django, lfts-django) revealed the current `generate` command produces code that doesn't match actual project conventions. These must be fixed before any new features ship.
+
+### Reference Architecture (from music-django + lfts-django)
+
+Both apps share these invariants — generated code must match:
+
+**Stack:** `django-ninja` + `django-ninja-extra` + `django-ninja-jwt`. Controllers use `@api_controller`, `@http_get`, `@http_post`, `@http_put`, `@http_delete` from `ninja_extra`. NO `@router.get` / `@router.patch` patterns — those are vanilla django-ninja, not ninja-extra.
+
+**Controller class pattern:**
+```python
+from ninja_extra import api_controller, http_get, http_post, http_put, http_delete
+from core.controllers.base_controller import BaseController, handle_exceptions
+from core.auth import JWTAuth, OptionalJWTAuth
+
+@api_controller("/{snake}s", tags=["{Pascal}"])
+class {Pascal}Controller(BaseController):
+    @http_get("/", response=list[{Pascal}Schema])
+    @handle_exceptions()
+    def list_{snake}s(self, request, search: str | None = None, limit: int = 20, offset: int = 0):
+        ...
+    
+    @http_get("/{{{snake}_id}}", response={200: {Pascal}Schema, 404: dict}, auth=OptionalJWTAuth())
+    @handle_exceptions()
+    def get_{snake}(self, request, {snake}_id: UUID):
+        ...
+    
+    @http_post("/", response={201: {Pascal}Schema, 400: dict}, auth=JWTAuth())
+    @handle_exceptions(success_status=201)
+    def create_{snake}(self, request, payload: {Pascal}CreateSchema):
+        obj = {Pascal}.objects.create(**payload.model_dump())  # NOT .dict()
+        return obj
+    
+    @http_put("/{{{snake}_id}}", response={200: {Pascal}Schema, 403: dict}, auth=JWTAuth())
+    @handle_exceptions()
+    def update_{snake}(self, request, {snake}_id: UUID, payload: {Pascal}UpdateSchema):
+        obj = get_object_or_404({Pascal}, id={snake}_id)
+        for attr, value in payload.model_dump(exclude_unset=True).items():
+            setattr(obj, attr, value)
+        obj.save()
+        return obj
+    
+    @http_delete("/{{{snake}_id}}", response={204: None}, auth=JWTAuth())
+    @handle_exceptions()
+    def delete_{snake}(self, request, {snake}_id: UUID):
+        obj = get_object_or_404({Pascal}, id={snake}_id)
+        obj.delete()
+        return 204, None
+```
+
+**Admin structure:** `APP_NAME/admin/{model_name}_admin.py` (one file per model, NOT a single `admin.py`)
+```python
+# APP_NAME/admin/product_admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_display = ["name", "price", "created_at"]
+    list_filter = ("created_at",)
+    search_fields = ("name",)
+    readonly_fields = ("id", "created_at", "updated_at")
+```
+Admin `__init__.py` imports all admin classes to register them.
+
+**Schema naming (LFTS pattern — preferred):**
+- `{Model}BaseSchema` — shared fields
+- `{Model}CreateSchema(BaseSchema)` — create request
+- `{Model}UpdateSchema(BaseSchema)` — update request (all fields optional)
+- `{Model}ResponseSchema(BaseSchema)` — response (includes id, timestamps)
+
+**Model base class:** Projects inherit from `AbstractBaseModel` in `core/models/base.py` which provides:
+- `id = UUIDField(primary_key=True, default=uuid.uuid4, editable=False)`
+- `created_at = DateTimeField(auto_now_add=True)`
+- `updated_at = DateTimeField(auto_now=True)`
+- `created_by`, `updated_by` ForeignKeys to AUTH_USER_MODEL
+- `is_active = BooleanField(default=True)`
+- `soft_delete()` / `restore()` methods
+
+Generated models should inherit from `AbstractBaseModel`, not `models.Model`.
+
+**API registration:** `api.register_controllers(ProductController, ...)` in `api/urls.py` — NOT router-based.
+
+**FK IDs in schemas:** FK relationships use `{related}_id: UUID` in schemas (not nested objects on create/update), nested response schemas only on read.
+
+---
+
+### 16A: Fix `generate model` — Critical Bugs
+
+- [ ] Fix `payload.dict()` → `payload.model_dump()` in `_generate_api_router` (line 433, 441) — **Pydantic v2 breaking change, generates broken code today**
+- [ ] Change generated model to inherit `AbstractBaseModel` from `core.models.base` instead of `models.Model`; remove manually added `created_at`/`updated_at` (they come from base)
+- [ ] Validate FK targets: before generating, check `backend/apps/{app}/models/{target_snake}.py` exists; hard error if not
+- [ ] Require at least one field or explicit `--empty` flag; error clearly if no `--fields` given
+- [ ] Remove hardcoded `created_at`/`updated_at` from generated model body (AbstractBaseModel provides them)
+- [ ] Change `@router.put` → `@http_put` and all other decorators to ninja-extra style
+- [ ] Change controller from function-based Router to class-based `@api_controller` + `BaseController`
+- [ ] Replace `list pagination` with `limit: int = 20, offset: int = 0` params on list endpoint
+- [ ] Fix list response to slice queryset: `return qs[offset:offset + limit]`
+
+### 16B: Fix `generate model` — Auto-Wiring (file updates after generation)
+
+Generated files are useless if they aren't wired in. After creating model/schema/controller files:
+
+- [ ] Update `backend/apps/{app}/models/__init__.py` — add `from .{snake} import {Pascal}` (create file if missing)
+- [ ] Create `backend/apps/{app}/admin/{snake}_admin.py` — per-model admin file with `@admin.register({Pascal})` + `ModelAdmin` (unfold style)
+- [ ] Update `backend/apps/{app}/admin/__init__.py` — add `from .{snake}_admin import {Pascal}Admin` (create if missing)
+- [ ] Update `api/urls.py` — append `{Pascal}Controller` to `api.register_controllers(...)` call if it exists; otherwise print reminder
+- [ ] Print post-generation checklist: what was created, what to run next (`makemigrations`, `migrate`), what was wired, what needs manual attention
+
+### 16C: Fix `generate endpoint` — Produce Usable Output
+
+Currently generates a stub returning `{"message": "Not implemented"}`. Must generate ninja-extra style:
+
+- [ ] Generate `@http_{method.lower()}` decorator (not `@router.{method}`)
+- [ ] If creating a new file, generate full controller class with `@api_controller` header
+- [ ] If appending to existing controller file, append the method inside the class body (detect class boundary)
+- [ ] Add proper response type hint from existing schemas if detectable
+- [ ] Add `auth=JWTAuth()` when `--auth` flag passed
+
+### 16D: Fix `generate schema` — Match Real Schema Patterns
+
+- [ ] Generate `{Pascal}BaseSchema(Schema)` with shared fields
+- [ ] Generate `{Pascal}CreateSchema({Pascal}BaseSchema)` — create request
+- [ ] Generate `{Pascal}UpdateSchema({Pascal}BaseSchema)` — all fields Optional with None defaults
+- [ ] Generate `{Pascal}ResponseSchema({Pascal}BaseSchema)` — adds `id: UUID`, `created_at: datetime`, `updated_at: datetime`
+- [ ] Use `from ninja import Schema` not `from pydantic import BaseModel` (ninja-extra projects use ninja Schema)
+- [ ] Add `model_config = ConfigDict(from_attributes=True)` on ResponseSchema
+
+### 16E: Tests for All 16A–16D Fixes
+
+- [ ] Test generated model inherits AbstractBaseModel, no manual timestamp fields
+- [ ] Test generated controller uses `@http_get`/`@http_post`/`@http_put`/`@http_delete` (not `@router.*`)
+- [ ] Test `payload.model_dump()` (not `.dict()`) appears in generated controller
+- [ ] Test `generate model` with no fields raises error without `--empty`
+- [ ] Test FK validation error when target model file doesn't exist
+- [ ] Test `models/__init__.py` updated after `generate model`
+- [ ] Test `admin/{snake}_admin.py` created after `generate model`
+- [ ] Test `admin/__init__.py` updated after `generate model`
+- [ ] Test generated schemas follow BaseSchema/CreateSchema/UpdateSchema/ResponseSchema pattern
+
+---
+
+## Phase 17: `generate crud` — Full-Stack Feature Command
+
+Single command that scaffolds a complete vertical slice of a feature. The killer demo for the public repo.
+
+```bash
+mattstack generate crud Product --fields "name:str price:decimal category:fk:Category" --with-tests
+```
+
+### Backend outputs:
+- `backend/apps/{app}/models/{snake}.py` — model inheriting AbstractBaseModel
+- `backend/apps/{app}/schemas/{snake}_schema.py` — Base/Create/Update/Response schemas
+- `backend/apps/{app}/controllers/{snake}_controller.py` — `@api_controller` class with full CRUD + list pagination
+- `backend/apps/{app}/admin/{snake}_admin.py` — unfold ModelAdmin
+- Auto-wire: `models/__init__.py`, `admin/__init__.py`, `api/urls.py` register_controllers
+
+### Frontend outputs (framework-aware):
+- `frontend/src/api/{snake}.ts` — typed API client functions (list, get, create, update, delete) using fetch
+- `frontend/src/hooks/use{Pascal}s.ts` — TanStack Query hooks: `use{Pascal}List`, `use{Pascal}`, `useCreate{Pascal}`, `useUpdate{Pascal}`, `useDelete{Pascal}`
+- `frontend/src/components/{Pascal}List/index.tsx` — list component with loading/error/empty states
+- `frontend/src/routes/{snake}s.tsx` or `app/{snake}s/page.tsx` — route/page (framework-detected)
+
+### With `--with-tests`:
+- `backend/apps/{app}/tests/test_{snake}_api.py` — pytest tests for list/get/create/update/delete
+- `frontend/src/components/{Pascal}List/{Pascal}List.test.tsx` — Vitest component test
+
+### Post-generation output:
+```
+Generated CRUD feature: Product
+  Backend:
+    ✓ models/product.py
+    ✓ schemas/product_schema.py
+    ✓ controllers/product_controller.py
+    ✓ admin/product_admin.py
+    ✓ models/__init__.py updated
+    ✓ admin/__init__.py updated
+    ⚠ api/urls.py — register ProductController manually
+  Frontend:
+    ✓ src/api/product.ts
+    ✓ src/hooks/useProducts.ts
+    ✓ src/components/ProductList/index.tsx
+    ✓ src/routes/products.tsx
+
+  Next steps:
+    cd backend && uv run python manage.py makemigrations
+    cd backend && uv run python manage.py migrate
+```
+
+### Implementation tasks:
+- [ ] Add `generate crud` subcommand to `generate_app` Typer group
+- [ ] Reuse and extend existing `_generate_django_model`, `_generate_pydantic_schema`, `_generate_api_router` (post Phase 16 fixes)
+- [ ] New: `_generate_controller_class` — ninja-extra `@api_controller` class with all 5 CRUD methods
+- [ ] New: `_generate_admin_file` — unfold-style per-model admin
+- [ ] New: `_generate_ts_api_client` — typed fetch functions for each endpoint
+- [ ] New: `_generate_tanstack_hooks` — `useQuery`/`useMutation` wrappers (list, get, create, update, delete)
+- [ ] New: `_generate_react_list_component` — loading/error/empty states, maps data to list items
+- [ ] New: `_generate_pytest_api_tests` — tests for each CRUD endpoint using pytest + django test client
+- [ ] New: `_generate_vitest_component_test` — renders component, checks list renders
+- [ ] Detect framework for page/route output (TanStack vs Next.js)
+- [ ] Tests for `generate crud` output completeness
+
+---
+
+## Phase 18: AI Agent Context Superpowers
+
+Enhance `mattstack context` to be genuinely useful as input to an AI coding agent.
+
+### 18A: Subcommands
+
+```bash
+mattstack context models    # All Django models with field types as structured JSON
+mattstack context routes    # All API routes with methods, paths, controller, schemas
+mattstack context types     # All TypeScript interfaces and Zod schemas
+mattstack context stack     # Tech stack summary (current behavior)
+mattstack context full      # All of the above combined
+```
+
+Tasks:
+- [ ] Refactor `context` into a subcommand group (Typer sub-app)
+- [ ] `context stack` — current `run_context` behavior as default
+- [ ] `context models` — parse `backend/apps/*/models/*.py`, extract class names + fields + types, output structured JSON
+- [ ] `context routes` — parse `backend/apps/*/controllers/*.py`, extract `@api_controller` prefix + `@http_*` decorators + method names + response types
+- [ ] `context types` — parse `frontend/src/**/*.ts`, extract TypeScript interfaces and Zod schemas
+- [ ] `context full` — combine all above into single payload
+
+### 18B: Output Formats
+
+```bash
+mattstack context full --format claude     # Claude XML <context> block
+mattstack context full --format json       # Machine-readable JSON (current partial)
+mattstack context full --format markdown   # Human-readable (current default)
+```
+
+Tasks:
+- [ ] Add `--format` flag accepting `claude`, `json`, `markdown`
+- [ ] Claude format: wraps output in `<context>` with `<models>`, `<routes>`, `<types>` sub-blocks
+- [ ] Add token count estimate at bottom: `# Estimated tokens: ~4,200`
+- [ ] Add `--max-tokens N` flag to truncate/summarize when context is large
+
+### 18C: Model Catalog Output
+
+```json
+{
+  "models": [
+    {
+      "name": "Product",
+      "app": "catalog",
+      "file": "backend/apps/catalog/models/product.py",
+      "inherits": "AbstractBaseModel",
+      "fields": [
+        {"name": "name", "type": "CharField", "max_length": 255},
+        {"name": "price", "type": "DecimalField"},
+        {"name": "category", "type": "ForeignKey", "to": "Category", "on_delete": "CASCADE"}
+      ]
+    }
+  ]
+}
+```
+
+Tasks:
+- [ ] Write `parsers/django_models.py` — regex-based parser for model field definitions
+- [ ] Detect `AbstractBaseModel` inheritance vs plain `models.Model`
+- [ ] Extract field types, kwargs (max_length, null, blank, default, on_delete)
+- [ ] Handle models split across `models/` folder (glob all `.py` files)
+
+### 18D: Route Catalog Output
+
+```json
+{
+  "routes": [
+    {
+      "controller": "ProductController",
+      "prefix": "/products",
+      "tag": "Products",
+      "endpoints": [
+        {"method": "GET", "path": "/", "handler": "list_products", "response": "list[ProductSchema]", "auth": false},
+        {"method": "POST", "path": "/", "handler": "create_product", "response": "201: ProductSchema", "auth": true}
+      ]
+    }
+  ]
+}
+```
+
+Tasks:
+- [ ] Extend `parsers/django_routes.py` to detect `@api_controller` + `@http_*` decorator patterns
+- [ ] Extract controller prefix, tags, auth at class level
+- [ ] Extract per-method: HTTP method, path, handler name, response type annotation, auth override
+
+### 18E: Watch Mode
+
+- [ ] Add `--watch` flag using `watchfiles` (already a common dep)
+- [ ] Re-emit context on any change in `backend/apps/*/` or `frontend/src/`
+- [ ] Clear terminal between emissions, show timestamp
+
+### 18F: Tests
+
+- [ ] Tests for `context models` against fixture project
+- [ ] Tests for `context routes` against fixture project with controllers
+- [ ] Tests for `--format claude` output structure
+- [ ] Tests for token estimate (rough sanity check)
+
+---
+
+## Phase 19: `sync api-client` Mutations + Pagination
+
+Complete the sync pipeline so generated hooks are production-ready.
+
+### Current state: only generates `useQuery` hooks for GET endpoints
+
+### What's missing:
+- [ ] Generate `useMutation` hooks for POST/PUT/DELETE endpoints from parsed routes
+- [ ] Infer request body types from `{Model}CreateSchema` / `{Model}UpdateSchema` naming convention
+- [ ] Generate `invalidateQueries({ queryKey: ['{snake}s'] })` in mutation `onSuccess`
+- [ ] Generate paginated list variant: `use{Pascal}List(page, pageSize)` with `keepPreviousData`
+- [ ] Generate proper `ApiError` interface for typed error handling
+- [ ] Add `--base-url` flag override (currently hardcoded `http://localhost:8000`)
+- [ ] Tests for mutation hook generation
+- [ ] Tests for pagination hook generation
+
+---
+
+## Phase 20: Fix Parallel Execution in `lint` and `test`
+
+The `--parallel` flag is accepted but runs subprocess calls sequentially. Fix it properly.
+
+- [ ] Replace sequential `subprocess.run()` chains with `concurrent.futures.ThreadPoolExecutor`
+- [ ] Use `subprocess.Popen` with streaming so output appears in real time
+- [ ] Prefix each output line with `[backend]` / `[frontend]` label
+- [ ] Return non-zero exit code if any subprocess fails (currently may swallow failures)
+- [ ] Tests that parallel mode actually spawns concurrent processes
+
+---
+
+## Phase 21: Test Coverage Gaps
+
+- [ ] Add tests for `commands/workflow.py` (currently 0 tests)
+- [ ] Add tests for `commands/hooks.py` (currently 0 tests)
+- [ ] Add integration test: `generate crud Product --fields "name:str"` → verify all files exist and are syntactically valid Python/TypeScript
+- [ ] Add E2E test: `generate model` → check `admin/{model}_admin.py` exists + `models/__init__.py` updated
+- [ ] Add regression test: generated controller uses `.model_dump()` not `.dict()`
+- [ ] Bring total test count to 700+
+
+---
+
+## Phase 22: README + Public Impression
+
+The README doesn't show what the tool actually produces. Fix that.
+
+- [ ] Add "What gets generated" section with full example output of `generate crud Product --fields "name:str price:decimal"` — show the actual files + content
+- [ ] Add animated terminal demo (SVG/asciicast showing `mattstack generate crud` in action)
+- [ ] Add `upgrade` and `health` to main commands table (currently missing)
+- [ ] Add "AI Agent Integration" section explaining `mattstack context --format claude` and how to pipe into Claude Code
+- [ ] Add comparison table: vs cookiecutter-django, vs django-startproject, vs manual setup
+- [ ] Add badges: PyPI version, Python 3.12+, license, test count
+- [ ] Add "why this?" one-paragraph summary at top (currently jumps straight to install)
+- [ ] Document `generate crud` as the headline command with a full example
+
+---
+
+## Phase 15: django-matt + Mateus First-Class Support
+
+First-class support for [django-matt](https://github.com/mattjaikaran/django-matt) (meta-framework replacing django-ninja/extra/jwt) and [mateus](https://github.com/mattjaikaran/mateus) (Rust JS/TS runtime replacing bun/vite/node). Goal: `mattstack init my-app --preset matt-fullstack` scaffolds a production dockerized app with django-matt backend + React SSR via mateus.
+
+### Phase 15A: django-matt Backend Support (unblocked — django-matt v0.9.0 on PyPI)
+
+- Add `BackendFramework` enum to `config.py` (`DJANGO_NINJA`, `DJANGO_MATT`)
+- Add `backend_framework` field to `ProjectConfig` (default `DJANGO_NINJA` for backward compat)
+- Create `django-matt-boilerplate` repo — django-matt, Postgres, Celery/native tasks, MattAPI + controllers
+- Add `"django-matt"` key to `REPO_URLS`
+- Add presets: `matt-api` (backend-only), `matt-fullstack` (django-matt + React Vite), `matt-b2b-fullstack` (django-matt + B2B)
+- Add django-matt to interactive wizard backend choices
+- Update `parsers/django_routes.py` — detect django-matt controller decorators (`@get`, `@post` on `APIController` subclasses)
+- Update `generators/backend_only.py` — route to django-matt boilerplate when `backend_framework == DJANGO_MATT`
+- Update `generators/fullstack.py` — support django-matt backend option
+- Update `commands/generate.py` — `generate model` outputs django-matt controller + `CRUDService` instead of ninja router
+- Update `commands/generate.py` — `generate endpoint` outputs django-matt decorator style
+- Update type sync — delegate to `django-matt sync_types` CLI when django-matt backend detected, or wrap its output
+- Update templates: docker-compose (django-matt deps), Makefile (django-matt CLI commands), README, CLAUDE.md
+- Update auditors: endpoint auditor recognizes django-matt route patterns
+- Tests for all django-matt parser, generator, and preset paths
+
+### Phase 15B: Mateus Frontend Support (blocked — mateus not yet published)
+
+- Add `FrontendFramework.REACT_MATEUS` enum value
+- Add `"react-mateus"` key to `REPO_URLS`
+- Create `react-mateus-boilerplate` repo — React 19 + mateus dev/build/test, TanStack Router, SSR
+- Add presets: `mateus-fullstack` (django-ninja + mateus), `mateus-frontend` (standalone)
+- Add mateus to interactive wizard frontend choices
+- Update `utils/package_manager.py` — detect mateus via `mateus.lock` or `mateus.toml`
+- Update `commands/client.py` — mateus as package manager option (`mateus install`, `mateus add`, `mateus run`)
+- Update `commands/dev.py` — `mateus dev` instead of `bun run dev` / `vite`
+- Update `commands/test.py` — `mateus test` instead of `bun run test` / `vitest`
+- Update `commands/lint.py` — `mateus lint` + `mateus fmt` instead of eslint/prettier
+- Update templates: docker-compose (mateus build stage), Makefile (mateus commands), README
+- Update post-processors: mateus monorepo proxy config (if different from vite)
+- Tests for mateus detection, commands, and preset paths
+
+### Phase 15C: matt-fullstack Preset (blocked — both 15A and 15B)
+
+- Add preset: `matt-fullstack` (django-matt + React mateus SSR)
+- Add preset: `matt-b2b-fullstack` (django-matt B2B + React mateus SSR)
+- docker-compose.yml template: django-matt backend + mateus SSR frontend + Postgres + Redis + Celery worker
+- docker-compose.prod.yml: multi-stage builds, mateus compile for frontend, gunicorn for backend
+- E2E test: `mattstack init test-app --preset matt-fullstack` produces working dockerized app
+- Type sync integration: django-matt `sync_types` → mateus frontend consumes generated types
+- Update `mattstack audit` — verify cross-stack type safety for django-matt ↔ mateus React
+- Update `mattstack context` — include django-matt + mateus in AI context dump
+- Update `mattstack rules` — CLAUDE.md template for matt-fullstack projects
+- Documentation: README section, preset table update, example workflow
+
