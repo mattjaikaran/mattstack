@@ -35,12 +35,18 @@ def _header(config: ProjectConfig) -> str:
 def _tech_stack(config: ProjectConfig) -> str:
     stack: list[str] = []
     if config.has_backend:
-        stack.append("- **Backend**: Django + Django Ninja (Python)")
+        if config.is_nestjs_backend:
+            stack.append("- **Backend**: NestJS v11 + Fastify (TypeScript)")
+            stack.append("- **ORM**: Drizzle ORM")
+        else:
+            stack.append("- **Backend**: Django + Django Ninja (Python)")
         stack.append("- **Database**: PostgreSQL 17")
         if config.use_redis:
             stack.append("- **Cache/Queue**: Redis 7")
         if config.use_celery:
             stack.append("- **Background Tasks**: Celery")
+        elif config.is_nestjs_backend:
+            stack.append("- **Background Jobs**: Bull (Redis-based)")
     if config.has_frontend:
         if config.is_nextjs:
             stack.append("- **Frontend**: Next.js (App Router, TypeScript, Tailwind)")
@@ -60,6 +66,7 @@ def _tech_stack(config: ProjectConfig) -> str:
 
 
 def _quickstart(config: ProjectConfig) -> str:
+    api_port = config.backend_api_port
     lines = [
         "## Quick Start",
         "",
@@ -77,17 +84,22 @@ def _quickstart(config: ProjectConfig) -> str:
                 "",
                 "# Run database migrations",
                 "make backend-migrate",
-                "",
-                "# Create admin user",
-                "make backend-superuser",
             ]
         )
+        if config.is_django_backend:
+            lines.extend(
+                [
+                    "",
+                    "# Create admin user",
+                    "make backend-superuser",
+                ]
+            )
 
     lines.append("")
     lines.append("# Start dev servers")
 
     if config.has_backend:
-        lines.append("make backend-dev   # http://localhost:8000")
+        lines.append(f"make backend-dev   # http://localhost:{api_port}")
 
     if config.has_frontend:
         lines.append("make frontend-dev  # http://localhost:3000")
@@ -99,12 +111,13 @@ def _quickstart(config: ProjectConfig) -> str:
 def _project_structure_fullstack(config: ProjectConfig) -> str:
     ios_line = "\n├── ios/                  # iOS client (SwiftUI)" if config.include_ios else ""
     fe_label = "Next.js App" if config.is_nextjs else "React SPA"
+    backend_label = "NestJS API (TypeScript)" if config.is_nestjs_backend else "Django API (Python)"
     return f"""\
 ## Project Structure
 
 ```
 {config.name}/
-├── backend/              # Django API
+├── backend/              # {backend_label}
 ├── frontend/             # {fe_label}{ios_line}
 ├── docker-compose.yml    # Dev services
 ├── docker-compose.prod.yml
@@ -115,12 +128,13 @@ def _project_structure_fullstack(config: ProjectConfig) -> str:
 
 
 def _project_structure_backend(config: ProjectConfig) -> str:
+    backend_label = "NestJS API (TypeScript)" if config.is_nestjs_backend else "Django API (Python)"
     return f"""\
 ## Project Structure
 
 ```
 {config.name}/
-├── backend/              # Django API
+├── backend/              # {backend_label}
 ├── docker-compose.yml    # Dev services
 ├── Makefile
 ├── .env.example
@@ -164,11 +178,18 @@ Run `make help` to see all available commands.
 
 
 def _api_docs(config: ProjectConfig) -> str:
-    return """\
+    api_port = config.backend_api_port
+    if config.is_nestjs_backend:
+        return f"""\
 ## API Documentation
 
-- Swagger UI: http://localhost:8000/api/docs
-- OpenAPI JSON: http://localhost:8000/api/openapi.json"""
+- Swagger UI: http://localhost:{api_port}/api/docs
+- OpenAPI JSON: http://localhost:{api_port}/api-json"""
+    return f"""\
+## API Documentation
+
+- Swagger UI: http://localhost:{api_port}/api/docs
+- OpenAPI JSON: http://localhost:{api_port}/api/openapi.json"""
 
 
 def _b2b_features() -> str:

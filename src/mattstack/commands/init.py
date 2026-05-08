@@ -134,7 +134,7 @@ def _run_interactive(
         "Project type:",
         choices=[
             questionary.Choice("Fullstack Monorepo (Backend + Frontend)", value="fullstack"),
-            questionary.Choice("Backend Only (Django API)", value="backend-only"),
+            questionary.Choice("Backend Only (API)", value="backend-only"),
             questionary.Choice("Frontend Only", value="frontend-only"),
         ],
         style=STYLE,
@@ -162,9 +162,13 @@ def _run_interactive(
         bf_choice = questionary.select(
             "Backend framework:",
             choices=[
-                questionary.Choice("Django Ninja Extra (default)", value="django-ninja"),
+                questionary.Choice("Django Ninja Extra (Python, default)", value="django-ninja"),
                 questionary.Choice(
-                    "django-matt (MattAPI controllers + CRUDService)", value="django-matt"
+                    "django-matt (Python, MattAPI controllers + CRUDService)", value="django-matt"
+                ),
+                questionary.Choice(
+                    "NestJS (Node.js/TypeScript, Fastify + Drizzle ORM + JWT/OAuth)",
+                    value="nestjs",
                 ),
             ],
             style=STYLE,
@@ -209,16 +213,19 @@ def _run_interactive(
         if include_ios is None:
             raise KeyboardInterrupt
 
-    # 7. Celery
+    # 7. Celery (Django only — NestJS uses Bull queues internally)
     use_celery = True
     if project_type in (ProjectType.FULLSTACK, ProjectType.BACKEND_ONLY):
-        use_celery = questionary.confirm(
-            "Include Celery background tasks?",
-            default=True,
-            style=STYLE,
-        ).ask()
-        if use_celery is None:
-            raise KeyboardInterrupt
+        if backend_framework == BackendFramework.NESTJS:
+            use_celery = False  # NestJS has Bull/Redis queues built-in
+        else:
+            use_celery = questionary.confirm(
+                "Include Celery background tasks?",
+                default=True,
+                style=STYLE,
+            ).ask()
+            if use_celery is None:
+                raise KeyboardInterrupt
 
     # Build config
     config = ProjectConfig(
@@ -320,14 +327,18 @@ def _print_next_steps(config: ProjectConfig) -> None:
     console.print("  [cyan]make setup[/cyan]")
     if config.has_backend:
         console.print("  [cyan]make up[/cyan]          # Start Docker services")
-        console.print("  [cyan]make backend-migrate[/cyan]")
-        console.print("  [cyan]make backend-superuser[/cyan]")
+        if config.is_nestjs_backend:
+            console.print("  [cyan]make backend-migrate[/cyan]  # Run Drizzle migrations")
+        else:
+            console.print("  [cyan]make backend-migrate[/cyan]")
+            console.print("  [cyan]make backend-superuser[/cyan]")
     if config.is_fullstack:
-        console.print("  [cyan]make backend-dev[/cyan]  # http://localhost:8000")
+        api_port = config.backend_api_port
+        console.print(f"  [cyan]make backend-dev[/cyan]  # http://localhost:{api_port}")
         console.print("  [cyan]make frontend-dev[/cyan] # http://localhost:3000")
     elif config.has_backend:
-        console.print("  [cyan]make backend-dev[/cyan]  # http://localhost:8000")
+        api_port = config.backend_api_port
+        console.print(f"  [cyan]make backend-dev[/cyan]  # http://localhost:{api_port}")
     elif config.has_frontend:
-        port = "3000"
-        console.print(f"  [cyan]make frontend-dev[/cyan] # http://localhost:{port}")
+        console.print("  [cyan]make frontend-dev[/cyan] # http://localhost:3000")
     console.print()

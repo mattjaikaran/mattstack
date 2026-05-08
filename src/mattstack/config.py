@@ -22,6 +22,7 @@ class Variant(str, Enum):
 class BackendFramework(str, Enum):
     DJANGO_NINJA = "django-ninja"
     DJANGO_MATT = "django-matt"
+    NESTJS = "nestjs"
 
 
 class FrontendFramework(str, Enum):
@@ -46,13 +47,18 @@ class DeploymentTarget(str, Enum):
 
 
 REPO_URLS: dict[str, str] = {
+    # Python / Django backends
     "django-ninja": "https://github.com/mattjaikaran/django-ninja-boilerplate.git",
     "django-matt": "https://github.com/mattjaikaran/django-matt-boilerplate.git",
+    # Node.js / TypeScript backends
+    "nestjs": "https://github.com/mattjaikaran/nestjs-boilerplate.git",
+    # React frontends
     "react-vite": "https://github.com/mattjaikaran/react-vite-boilerplate.git",
     "react-vite-starter": "https://github.com/mattjaikaran/react-vite-starter.git",
     "react-rsbuild": "https://github.com/mattjaikaran/react-rsbuild-boilerplate.git",
     "react-rsbuild-kibo": "https://github.com/mattjaikaran/react-rsbuild-kibo-boilerplate.git",
     "nextjs": "https://github.com/mattjaikaran/nextjs-starter.git",
+    # Mobile
     "swift-ios": "https://github.com/mattjaikaran/swift-ios-starter.git",
 }
 
@@ -111,6 +117,10 @@ class ProjectConfig:
             self.use_celery = False
             self.use_redis = False
             self.include_ios = False
+        # NestJS uses Bull (Redis-based queues) not Celery; Redis still needed
+        if self.backend_framework == BackendFramework.NESTJS:
+            self.use_celery = False
+            self.use_redis = True
         # Celery requires Redis
         if self.use_celery and not self.use_redis:
             self.use_redis = True
@@ -158,6 +168,19 @@ class ProjectConfig:
     @property
     def is_django_matt(self) -> bool:
         return self.backend_framework == BackendFramework.DJANGO_MATT
+
+    @property
+    def is_nestjs_backend(self) -> bool:
+        return self.backend_framework == BackendFramework.NESTJS
+
+    @property
+    def is_django_backend(self) -> bool:
+        return self.backend_framework in (BackendFramework.DJANGO_NINJA, BackendFramework.DJANGO_MATT)
+
+    @property
+    def backend_api_port(self) -> int:
+        """Port the backend API runs on. NestJS uses 4000 in monorepo to avoid frontend conflicts."""
+        return 4000 if self.is_nestjs_backend else 8000
 
     @property
     def backend_repo_key(self) -> str:

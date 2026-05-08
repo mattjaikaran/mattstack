@@ -13,6 +13,8 @@ from mattstack.config import (
     Variant,
 )
 
+# NestJS is a Node.js/TypeScript backend — no Celery (uses Bull queues internally)
+
 
 @dataclass
 class Preset:
@@ -145,6 +147,42 @@ PRESETS: dict[str, Preset] = {
         project_type=ProjectType.FULLSTACK,
         variant=Variant.B2B,
         backend_framework=BackendFramework.DJANGO_MATT,
+    ),
+    # NestJS (Node.js/TypeScript) presets
+    "nestjs-api": Preset(
+        name="nestjs-api",
+        description="NestJS API only (Fastify + Drizzle ORM + JWT/OAuth + Redis)",
+        project_type=ProjectType.BACKEND_ONLY,
+        variant=Variant.STARTER,
+        backend_framework=BackendFramework.NESTJS,
+        use_celery=False,
+    ),
+    "nestjs-fullstack": Preset(
+        name="nestjs-fullstack",
+        description="Fullstack monorepo (NestJS API + React Vite + TanStack Router)",
+        project_type=ProjectType.FULLSTACK,
+        variant=Variant.STARTER,
+        backend_framework=BackendFramework.NESTJS,
+        frontend_framework=FrontendFramework.REACT_VITE,
+        use_celery=False,
+    ),
+    "nestjs-rsbuild-fullstack": Preset(
+        name="nestjs-rsbuild-fullstack",
+        description="Fullstack monorepo (NestJS API + React Rsbuild + TanStack Router)",
+        project_type=ProjectType.FULLSTACK,
+        variant=Variant.STARTER,
+        backend_framework=BackendFramework.NESTJS,
+        frontend_framework=FrontendFramework.REACT_RSBUILD,
+        use_celery=False,
+    ),
+    "nestjs-nextjs-fullstack": Preset(
+        name="nestjs-nextjs-fullstack",
+        description="Fullstack monorepo (NestJS API + Next.js App Router)",
+        project_type=ProjectType.FULLSTACK,
+        variant=Variant.STARTER,
+        backend_framework=BackendFramework.NESTJS,
+        frontend_framework=FrontendFramework.NEXTJS,
+        use_celery=False,
     ),
 }
 

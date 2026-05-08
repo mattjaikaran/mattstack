@@ -12,16 +12,16 @@ def generate_makefile(config: ProjectConfig) -> str:
     if config.is_fullstack:
         sections.append(_setup_fullstack(config))
         sections.append(_docker_targets(config))
-        sections.append(_backend_targets())
+        sections.append(_backend_targets(config))
         sections.append(_frontend_targets(config))
         if config.include_ios:
             sections.append(_ios_targets(config))
         sections.append(_combined_targets(config))
         sections.append(_prod_targets())
     elif config.has_backend:
-        sections.append(_setup_backend())
+        sections.append(_setup_backend(config))
         sections.append(_docker_targets(config))
-        sections.append(_backend_targets())
+        sections.append(_backend_targets(config))
         sections.append(_prod_targets())
     elif config.has_frontend:
         sections.append(_setup_frontend(config))
@@ -51,11 +51,12 @@ help: ## Show this help
 
 def _setup_fullstack(config: ProjectConfig) -> str:
     ios_setup = "\n\t@echo 'iOS setup: open ios/ in Xcode'" if config.include_ios else ""
+    backend_install = "bun install" if config.is_nestjs_backend else "uv sync"
     return f"""
 .PHONY: setup
 setup: ## Install all dependencies
 \t@echo 'Setting up backend...'
-\tcd backend && uv sync
+\tcd backend && {backend_install}
 \t@echo 'Setting up frontend...'
 \tcd frontend && bun install{ios_setup}
 \t@echo 'Copying .env.example to .env (if needed)...'
@@ -63,12 +64,13 @@ setup: ## Install all dependencies
 \t@echo 'Setup complete!'"""
 
 
-def _setup_backend() -> str:
-    return """
+def _setup_backend(config: ProjectConfig) -> str:
+    install_cmd = "bun install" if config.is_nestjs_backend else "uv sync"
+    return f"""
 .PHONY: setup
 setup: ## Install backend dependencies
 \t@echo 'Setting up backend...'
-\tcd backend && uv sync
+\tcd backend && {install_cmd}
 \t@test -f .env || cp .env.example .env
 \t@echo 'Setup complete!'"""
 
@@ -99,7 +101,13 @@ restart: ## Restart all services
 \tdocker compose restart"""
 
 
-def _backend_targets() -> str:
+def _backend_targets(config: ProjectConfig) -> str:
+    if config.is_nestjs_backend:
+        return _nestjs_backend_targets(config)
+    return _django_backend_targets()
+
+
+def _django_backend_targets() -> str:
     return """
 .PHONY: backend-setup backend-dev backend-test backend-lint
 .PHONY: backend-migrate backend-shell backend-makemigrations backend-superuser
@@ -126,6 +134,39 @@ backend-shell: ## Django shell
 
 backend-superuser: ## Create Django superuser
 \tcd backend && uv run python manage.py createsuperuser"""
+
+
+def _nestjs_backend_targets(config: ProjectConfig) -> str:
+    port = config.backend_api_port
+    return f"""
+.PHONY: backend-setup backend-dev backend-build backend-test backend-lint
+.PHONY: backend-migrate backend-seed backend-studio
+backend-setup: ## Install backend deps
+\tcd backend && bun install
+
+backend-dev: ## Run NestJS dev server (port {port})
+\tcd backend && PORT={port} bun run start:dev
+
+backend-build: ## Build NestJS for production
+\tcd backend && bun run build
+
+backend-test: ## Run backend tests (Jest)
+\tcd backend && bun run test
+
+backend-test-cov: ## Run tests with coverage
+\tcd backend && bun run test:cov
+
+backend-lint: ## Lint backend (Biome)
+\tcd backend && bun run lint
+
+backend-migrate: ## Run Drizzle migrations
+\tcd backend && bun run db:migrate
+
+backend-seed: ## Seed the database
+\tcd backend && bun run db:seed
+
+backend-studio: ## Open Drizzle Studio
+\tcd backend && bun run db:studio"""
 
 
 def _frontend_targets(config: ProjectConfig) -> str:
@@ -159,6 +200,12 @@ ios-test: ## Run iOS tests
 
 
 def _combined_targets(config: ProjectConfig) -> str:
+    if config.is_nestjs_backend:
+        return _combined_targets_nestjs(config)
+    return _combined_targets_django(config)
+
+
+def _combined_targets_django(config: ProjectConfig) -> str:
     return """
 .PHONY: test lint format sync-types clean
 test: ## Run all tests
@@ -182,6 +229,29 @@ sync-types: ## Sync backend types to frontend TypeScript
 clean: ## Clean all build artifacts
 \tdocker compose down -v
 \trm -rf backend/.pytest_cache backend/__pycache__
+\trm -rf frontend/node_modules frontend/dist"""
+
+
+def _combined_targets_nestjs(config: ProjectConfig) -> str:
+    return """
+.PHONY: test lint format clean
+test: ## Run all tests
+\t@echo 'Running backend tests...'
+\tcd backend && bun run test
+\t@echo 'Running frontend type check...'
+\tcd frontend && bun run typecheck
+
+lint: ## Lint all code
+\tcd backend && bun run lint
+\tcd frontend && bun run lint
+
+format: ## Format all code
+\tcd backend && bun run format
+\tcd frontend && bun run format
+
+clean: ## Clean all build artifacts
+\tdocker compose down -v
+\trm -rf backend/dist backend/node_modules
 \trm -rf frontend/node_modules frontend/dist"""
 
 

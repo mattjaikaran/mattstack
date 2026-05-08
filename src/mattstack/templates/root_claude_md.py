@@ -45,13 +45,16 @@ def _header(config: ProjectConfig) -> str:
 def _structure(config: ProjectConfig) -> str:
     parts: list[str] = []
     if config.has_backend:
-        parts.append("- `backend/` — Django API (django-ninja, Python 3.12+)")
+        if config.is_nestjs_backend:
+            parts.append("- `backend/` — NestJS API (TypeScript, Fastify, Drizzle ORM)")
+        else:
+            parts.append("- `backend/` — Django API (django-ninja, Python 3.12+)")
     if config.has_frontend:
         if config.is_nextjs:
             parts.append("- `frontend/` — Next.js (App Router, TypeScript, Tailwind)")
         elif config.frontend_framework == _KIBO:
             parts.append("- `frontend/` — React + Rsbuild + Kibo UI + TypeScript (TanStack Router/Table)")
-        elif config.frontend_framework in (_RSBUILD, _KIBO):
+        elif config.frontend_framework == _RSBUILD:
             parts.append("- `frontend/` — React + Rsbuild + TypeScript (TanStack Router)")
         else:
             fw = config.frontend_framework
@@ -70,9 +73,13 @@ def _structure(config: ProjectConfig) -> str:
 def _tech(config: ProjectConfig) -> str:
     parts: list[str] = []
     if config.has_backend:
-        parts.append("- Backend: Python 3.12+, Django, django-ninja, PostgreSQL 17")
-        if config.use_celery:
-            parts.append("- Background: Celery + Redis")
+        if config.is_nestjs_backend:
+            parts.append("- Backend: TypeScript, NestJS v11, Fastify, Drizzle ORM, PostgreSQL 17")
+            parts.append("- Background Jobs: Bull (Redis-based queues)")
+        else:
+            parts.append("- Backend: Python 3.12+, Django, django-ninja, PostgreSQL 17")
+            if config.use_celery:
+                parts.append("- Background: Celery + Redis")
     if config.has_frontend:
         if config.is_nextjs:
             parts.append("- Frontend: Next.js (App Router), TypeScript (strict)")
@@ -91,32 +98,47 @@ def _rules(config: ProjectConfig) -> str:
         "",
         "**CRITICAL — AI agents MUST follow these rules:**",
         "",
-        "- **Python packages**: ALWAYS use `uv`. NEVER use pip, poetry, or conda.",
-        "- **JavaScript packages**: ALWAYS use `bun`. NEVER use `npm`, `yarn`, or `pnpm`.",
     ]
 
+    if config.is_nestjs_backend:
+        lines.append("- **JavaScript/TypeScript packages**: ALWAYS use `bun`. NEVER use `npm`, `yarn`, or `pnpm`.")
+    else:
+        lines.append("- **Python packages**: ALWAYS use `uv`. NEVER use pip, poetry, or conda.")
+        lines.append("- **JavaScript packages**: ALWAYS use `bun`. NEVER use `npm`, `yarn`, or `pnpm`.")
+
     if config.has_backend:
-        docker_rule = (
+        lines.append(
             "- **Docker**: Run `docker compose up -d` before dev servers. "
             "NEVER install PostgreSQL or Redis locally."
         )
-        lines.append(docker_rule)
-        lines.append(
-            "- **API framework**: Backend uses django-ninja (Pydantic models, type-safe). "
-            "NEVER use Django REST Framework serializers."
-        )
-        lines.append(
-            "- **Migrations**: ALWAYS run `cd backend && uv run python manage.py makemigrations "
-            "&& uv run python manage.py migrate` after model changes."
-        )
+        if config.is_nestjs_backend:
+            lines.append(
+                "- **ORM**: Backend uses Drizzle ORM (NOT TypeORM, Prisma, or Sequelize). "
+                "Run `bun run db:migrate` after schema changes."
+            )
+        else:
+            lines.append(
+                "- **API framework**: Backend uses django-ninja (Pydantic models, type-safe). "
+                "NEVER use Django REST Framework serializers."
+            )
+            lines.append(
+                "- **Migrations**: ALWAYS run `cd backend && uv run python manage.py makemigrations "
+                "&& uv run python manage.py migrate` after model changes."
+            )
 
-    lines.append("- **Type safety**: ALWAYS use type hints (Python). ALWAYS use strict TypeScript.")
+    lines.append("- **Type safety**: ALWAYS use type hints (Python) / strict TypeScript.")
 
-    if config.is_fullstack:
+    if config.is_nestjs_backend and config.is_fullstack:
+        lines.append("- **Testing**: `bun run test` in backend, `bun run test` in frontend.")
+        lines.append("- **Linting**: `bun run lint` in backend and frontend (Biome).")
+    elif config.is_fullstack:
         lines.append("- **Testing**: `uv run pytest -v` in backend, `bun run test` in frontend.")
         lines.append("- **Linting**: `uv run ruff check .` in backend, `bun run lint` in frontend.")
         fmt = "`uv run ruff format .` in backend, `bun run format` in frontend."
         lines.append(f"- **Formatting**: {fmt}")
+    elif config.is_nestjs_backend:
+        lines.append("- **Testing**: Run `bun run test` in `backend/`.")
+        lines.append("- **Linting**: Run `bun run lint` in `backend/`.")
     elif config.has_backend:
         lines.append("- **Testing**: Run `uv run pytest -v` in `backend/`.")
         lines.append("- **Linting**: Run `uv run ruff check .` in `backend/`.")
@@ -142,13 +164,14 @@ def _env_files_description(config: ProjectConfig) -> str:
     if config.has_backend and config.has_frontend:
         return "Root `.env` for Docker services. `frontend/.env.local` for frontend-specific vars."
     if config.has_backend:
-        return "Root `.env` for Django and Docker services."
+        return "Root `.env` for backend and Docker services."
     if config.has_frontend:
         return "`frontend/.env.local` for frontend-specific vars."
     return ""
 
 
 def _commands(config: ProjectConfig) -> str:
+    api_port = config.backend_api_port
     lines = [
         "## Commands",
         "",
@@ -159,7 +182,7 @@ def _commands(config: ProjectConfig) -> str:
         lines.append("make up                 # Start Docker services (PostgreSQL, Redis)")
         lines.append("make down               # Stop Docker services")
     if config.has_backend:
-        lines.append("make backend-dev        # Django dev server (port 8000)")
+        lines.append(f"make backend-dev        # API dev server (port {api_port})")
     if config.has_frontend:
         if config.is_nextjs:
             label = "Next.js"
@@ -186,13 +209,16 @@ def _commands(config: ProjectConfig) -> str:
 
 
 def _ports(config: ProjectConfig) -> str:
+    api_port = config.backend_api_port
     rows: list[tuple[str, str, str]] = []
     if config.has_backend:
-        rows.append(("Django API", "8000", "http://localhost:8000"))
+        svc_name = "NestJS API" if config.is_nestjs_backend else "Django API"
+        rows.append((svc_name, str(api_port), f"http://localhost:{api_port}"))
         rows.append(("PostgreSQL", "5432", "—"))
         if config.use_redis:
             rows.append(("Redis", "6379", "—"))
-        rows.append(("API Docs", "8000", "http://localhost:8000/api/docs"))
+        docs_path = "/api/docs" if config.is_nestjs_backend else "/api/docs"
+        rows.append(("API Docs", str(api_port), f"http://localhost:{api_port}{docs_path}"))
     if config.has_frontend:
         rows.append(("Frontend", "3000", "http://localhost:3000"))
     if not rows:
@@ -205,7 +231,10 @@ def _ports(config: ProjectConfig) -> str:
 def _env_vars(config: ProjectConfig) -> str:
     parts: list[str] = ["## Environment Variables", ""]
     if config.has_backend:
-        parts.append("- Root `.env`: `DATABASE_URL`, `DJANGO_SECRET_KEY`, `REDIS_URL` (if Redis)")
+        if config.is_nestjs_backend:
+            parts.append("- Root `.env`: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `REDIS_URL`")
+        else:
+            parts.append("- Root `.env`: `DATABASE_URL`, `DJANGO_SECRET_KEY`, `REDIS_URL` (if Redis)")
     if config.has_frontend:
         if config.is_nextjs:
             api_var = "NEXT_PUBLIC_API_BASE_URL"
@@ -220,6 +249,23 @@ def _env_vars(config: ProjectConfig) -> str:
 
 
 def _backend(config: ProjectConfig) -> str:
+    api_port = config.backend_api_port
+    if config.is_nestjs_backend:
+        lines = [
+            "## Backend",
+            "",
+            "- Language: TypeScript (strict)",
+            "- Framework: NestJS v11 + Fastify",
+            "- ORM: Drizzle ORM",
+            "- Package manager: bun (NEVER npm)",
+            "- Testing: Jest",
+            "- Linting/Formatting: Biome",
+            "- Database: PostgreSQL 17 (via Docker)",
+            "- Auth: JWT (access + refresh) + Google/GitHub OAuth + WebAuthn",
+            f"- API docs: http://localhost:{api_port}/api/docs (Swagger UI)",
+        ]
+        return "\n".join(lines)
+
     lines = [
         "## Backend",
         "",
@@ -229,7 +275,7 @@ def _backend(config: ProjectConfig) -> str:
         "- Testing: pytest",
         "- Linting: ruff",
         "- Database: PostgreSQL 17 (via Docker)",
-        "- API docs: http://localhost:8000/api/docs (Swagger UI)",
+        f"- API docs: http://localhost:{api_port}/api/docs (Swagger UI)",
     ]
     if config.use_celery:
         lines.append("- Background jobs: Celery (run with `docker compose --profile celery up`)")
@@ -284,9 +330,12 @@ def _docker_services(config: ProjectConfig) -> str:
     parts = ["## Docker Services", "", "- `db`: PostgreSQL 17"]
     if config.use_redis:
         parts.append("- `redis`: Redis 7")
-    parts.append("- `api-dev`: Django dev server (when using Docker)")
-    if config.use_celery:
-        parts.append("- `celery-worker`, `celery-beat`: Celery (profile: celery)")
+    if config.is_nestjs_backend:
+        parts.append("- `api-dev`: NestJS dev server (auto-migrates on start)")
+    else:
+        parts.append("- `api-dev`: Django dev server (when using Docker)")
+        if config.use_celery:
+            parts.append("- `celery-worker`, `celery-beat`: Celery (profile: celery)")
     return "\n".join(parts)
 
 
@@ -306,11 +355,12 @@ def _mattstack_integration(config: ProjectConfig) -> str:
     ]
     if config.has_backend:
         lines.extend([
-            "- `mattstack generate model <Name> --fields \"...\"` — Scaffold Django model + schema + router",
-            "- `mattstack db migrate` — Run Django migrations",
+            "- `mattstack db migrate` — Run database migrations",
             "- `mattstack db seed` — Seed database with sample data",
         ])
-    if config.has_backend and config.has_frontend:
+        if config.is_django_backend:
+            lines.append("- `mattstack generate model <Name> --fields \"...\"` — Scaffold Django model + schema + router")
+    if config.has_backend and config.has_frontend and config.is_django_backend:
         lines.extend([
             "- `mattstack sync types` — Generate TypeScript interfaces from Pydantic models",
             "- `mattstack sync zod` — Generate Zod schemas from Pydantic models",

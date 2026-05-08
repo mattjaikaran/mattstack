@@ -10,10 +10,17 @@ from mattstack.utils.console import print_info
 
 def customize_backend(config: ProjectConfig) -> None:
     """Rename the backend project to match the project name."""
+    if config.is_nestjs_backend:
+        _customize_nestjs_backend(config)
+    else:
+        _customize_django_backend(config)
+
+
+def _customize_django_backend(config: ProjectConfig) -> None:
+    """Rename a Django backend project."""
     pyproject = config.backend_dir / "pyproject.toml"
     if pyproject.exists():
         content = pyproject.read_text()
-        # Update project name
         content = content.replace(
             'name = "django-ninja-boilerplate"',
             f'name = "{config.name}-backend"',
@@ -31,6 +38,17 @@ def customize_backend(config: ProjectConfig) -> None:
         import shutil
 
         shutil.rmtree(cli_dir)
+
+
+def _customize_nestjs_backend(config: ProjectConfig) -> None:
+    """Rename a NestJS backend project via package.json."""
+    package_json = config.backend_dir / "package.json"
+    if package_json.exists():
+        data = json.loads(package_json.read_text())
+        data["name"] = f"{config.name}-backend"
+        data["description"] = f"{config.display_name} API (NestJS)"
+        package_json.write_text(json.dumps(data, indent=2) + "\n")
+        print_info(f"Renamed backend to {config.name}-backend")
 
 
 def customize_frontend(config: ProjectConfig) -> None:

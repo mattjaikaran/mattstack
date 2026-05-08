@@ -18,11 +18,13 @@ def generate_docker_compose(config: ProjectConfig) -> str:
             services.append(_redis_service())
             volumes.append("  redis_data:")
 
-        services.append(_api_dev_service(config))
-
-        if config.use_celery:
-            services.append(_celery_worker_service(config))
-            services.append(_celery_beat_service(config))
+        if config.is_nestjs_backend:
+            services.append(_nestjs_api_dev_service(config))
+        else:
+            services.append(_api_dev_service(config))
+            if config.use_celery:
+                services.append(_celery_worker_service(config))
+                services.append(_celery_beat_service(config))
 
     if config.has_frontend:
         services.append(_frontend_dev_service(config))
@@ -96,20 +98,50 @@ def _api_dev_service(config: ProjectConfig) -> str:
 
     env_block = "\n".join(env_lines)
 
+    port = config.backend_api_port
     return f"""\
   api-dev:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: uv run python manage.py runserver 0.0.0.0:8000
+    command: uv run python manage.py runserver 0.0.0.0:{port}
     ports:
-      - "${{API_PORT:-8000}}:8000"
+      - "${{API_PORT:-{port}}}:{port}"
     volumes:
       - ./backend:/app
     environment:
 {env_block}
     depends_on:
 {depends_block}"""
+
+
+def _nestjs_api_dev_service(config: ProjectConfig) -> str:
+    port = config.backend_api_port
+    db_name = config.python_package_name
+    return f"""\
+  api-dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    command: sh -c "bun run db:migrate && bun run start:dev"
+    ports:
+      - "${{API_PORT:-{port}}}:{port}"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+      PORT: {port}
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/{db_name}
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy"""
 
 
 def _celery_worker_service(config: ProjectConfig) -> str:
@@ -161,12 +193,14 @@ def _frontend_dev_service(config: ProjectConfig) -> str:
     depends_on:
       - api-dev"""
 
+    api_url = f"http://localhost:{config.backend_api_port}/api/v1" if config.has_backend else ""
+
     if config.is_nextjs:
         env_block = ""
         if config.has_backend:
-            env_block = """
+            env_block = f"""
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000/api/v1"""
+      NEXT_PUBLIC_API_BASE_URL: {api_url}"""
         return f"""\
   frontend-dev:
     build:
@@ -180,6 +214,10 @@ def _frontend_dev_service(config: ProjectConfig) -> str:
       - /app/node_modules
       - /app/.next{env_block}{depends}"""
 
+    vite_env = f"VITE_API_BASE_URL: {api_url}"
+    if config.is_django_backend:
+        vite_env += "\n      VITE_MODE: django-spa"
+
     return f"""\
   frontend-dev:
     build:
@@ -192,5 +230,4 @@ def _frontend_dev_service(config: ProjectConfig) -> str:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      VITE_API_BASE_URL: http://localhost:8000/api/v1
-      VITE_MODE: django-spa{depends}"""
+      {vite_env}{depends}"""

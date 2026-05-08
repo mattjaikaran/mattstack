@@ -8,7 +8,7 @@ from mattstack.presets import get_preset, list_presets
 
 def test_list_presets():
     presets = list_presets()
-    assert len(presets) == 15
+    assert len(presets) == 19
     names = [p.name for p in presets]
     assert "starter-fullstack" in names
     assert "b2b-fullstack" in names
@@ -22,6 +22,10 @@ def test_list_presets():
     assert "matt-api" in names
     assert "matt-fullstack" in names
     assert "matt-b2b-fullstack" in names
+    assert "nestjs-api" in names
+    assert "nestjs-fullstack" in names
+    assert "nestjs-rsbuild-fullstack" in names
+    assert "nestjs-nextjs-fullstack" in names
 
 
 def test_get_preset():
