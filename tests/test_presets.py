@@ -2,13 +2,13 @@
 
 from pathlib import Path
 
-from mattstack.config import FrontendFramework, ProjectType, Variant
+from mattstack.config import BackendFramework, FrontendFramework, ProjectType, Variant
 from mattstack.presets import get_preset, list_presets
 
 
 def test_list_presets():
     presets = list_presets()
-    assert len(presets) == 19
+    assert len(presets) == 24
     names = [p.name for p in presets]
     assert "starter-fullstack" in names
     assert "b2b-fullstack" in names
@@ -22,6 +22,11 @@ def test_list_presets():
     assert "matt-api" in names
     assert "matt-fullstack" in names
     assert "matt-b2b-fullstack" in names
+    assert "fastapi-api" in names
+    assert "fastapi-fullstack" in names
+    assert "fastapi-b2b-fullstack" in names
+    assert "fastapi-rsbuild-fullstack" in names
+    assert "fastapi-nextjs-fullstack" in names
     assert "nestjs-api" in names
     assert "nestjs-fullstack" in names
     assert "nestjs-rsbuild-fullstack" in names
@@ -53,3 +58,22 @@ def test_simple_frontend_preset():
     assert preset is not None
     assert preset.frontend_framework == FrontendFramework.REACT_VITE_STARTER
     assert preset.use_celery is False
+
+
+def test_fastapi_api_preset(tmp_path: Path):
+    preset = get_preset("fastapi-api")
+    assert preset is not None
+    assert preset.backend_framework == BackendFramework.FASTAPI
+    assert preset.project_type == ProjectType.BACKEND_ONLY
+    config = preset.to_config("my-api", tmp_path / "my-api")
+    assert config.is_fastapi_backend is True
+    assert config.backend_api_port == 8000
+    assert config.use_celery is True
+
+
+def test_fastapi_fullstack_preset():
+    preset = get_preset("fastapi-fullstack")
+    assert preset is not None
+    assert preset.backend_framework == BackendFramework.FASTAPI
+    assert preset.project_type == ProjectType.FULLSTACK
+    assert preset.frontend_framework == FrontendFramework.REACT_VITE

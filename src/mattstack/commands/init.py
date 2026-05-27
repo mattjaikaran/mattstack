@@ -167,6 +167,10 @@ def _run_interactive(
                     "django-matt (Python, MattAPI controllers + CRUDService)", value="django-matt"
                 ),
                 questionary.Choice(
+                    "FastAPI (Python, async, SQLAlchemy + Alembic + Celery)",
+                    value="fastapi",
+                ),
+                questionary.Choice(
                     "NestJS (Node.js/TypeScript, Fastify + Drizzle ORM + JWT/OAuth)",
                     value="nestjs",
                 ),

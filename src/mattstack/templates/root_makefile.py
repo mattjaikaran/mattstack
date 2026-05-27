@@ -51,7 +51,7 @@ help: ## Show this help
 
 def _setup_fullstack(config: ProjectConfig) -> str:
     ios_setup = "\n\t@echo 'iOS setup: open ios/ in Xcode'" if config.include_ios else ""
-    backend_install = "bun install" if config.is_nestjs_backend else "uv sync"
+    backend_install = "bun install" if config.is_nestjs_backend else "uv sync --extra dev"
     return f"""
 .PHONY: setup
 setup: ## Install all dependencies
@@ -65,7 +65,7 @@ setup: ## Install all dependencies
 
 
 def _setup_backend(config: ProjectConfig) -> str:
-    install_cmd = "bun install" if config.is_nestjs_backend else "uv sync"
+    install_cmd = "bun install" if config.is_nestjs_backend else "uv sync --extra dev"
     return f"""
 .PHONY: setup
 setup: ## Install backend dependencies
@@ -104,6 +104,8 @@ restart: ## Restart all services
 def _backend_targets(config: ProjectConfig) -> str:
     if config.is_nestjs_backend:
         return _nestjs_backend_targets(config)
+    if config.is_fastapi_backend:
+        return _fastapi_backend_targets(config)
     return _django_backend_targets()
 
 
@@ -134,6 +136,38 @@ backend-shell: ## Django shell
 
 backend-superuser: ## Create Django superuser
 \tcd backend && uv run python manage.py createsuperuser"""
+
+
+def _fastapi_backend_targets(config: ProjectConfig) -> str:
+    return """
+.PHONY: backend-setup backend-dev backend-test backend-lint
+.PHONY: backend-migrate backend-shell backend-worker backend-beat
+backend-setup: ## Install backend deps
+\tcd backend && uv sync --extra dev
+
+backend-dev: ## Run FastAPI dev server (port 8000)
+\tcd backend && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+backend-test: ## Run backend tests (pytest)
+\tcd backend && uv run pytest -v
+
+backend-lint: ## Lint backend (ruff)
+\tcd backend && uv run ruff check .
+
+backend-migrate: ## Run Alembic migrations
+\tcd backend && uv run alembic upgrade head
+
+backend-makemigrations: ## Create a new Alembic migration
+\tcd backend && uv run alembic revision --autogenerate -m "$(MSG)"
+
+backend-shell: ## Open Python shell
+\tcd backend && uv run python
+
+backend-worker: ## Run Celery worker
+\tcd backend && uv run celery -A app.workers.celery_app worker --loglevel=info
+
+backend-beat: ## Run Celery beat scheduler
+\tcd backend && uv run celery -A app.workers.celery_app beat --loglevel=info"""
 
 
 def _nestjs_backend_targets(config: ProjectConfig) -> str:

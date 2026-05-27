@@ -313,10 +313,10 @@ Use `mattstack init -c project.yaml` to scaffold from a file:
 name: my-app
 project_type: fullstack           # fullstack | backend-only | frontend-only
 variant: starter                  # starter | b2b
-backend_framework: nestjs         # django-ninja | django-matt | nestjs
+backend_framework: fastapi        # django-ninja | django-matt | fastapi | nestjs
 frontend_framework: react-vite    # react-vite | react-vite-starter | react-rsbuild | react-rsbuild-kibo | nextjs
 include_ios: false
-use_celery: false                 # Django only; NestJS uses Bull automatically
+use_celery: true                  # Django + FastAPI support Celery; NestJS uses Bull automatically
 deployment: docker                # docker | railway | render | fly-io | cloudflare | digital-ocean | aws | gcp | hetzner | self-hosted
 ```
 
@@ -340,6 +340,16 @@ Run `mattstack info` or see [presets below](#presets).
 | `matt-api` | django-matt | — | yes |
 | `matt-fullstack` | django-matt | react-vite | yes |
 | `matt-b2b-fullstack` | django-matt | react-vite | yes |
+
+### FastAPI presets
+
+| Preset | Backend | Frontend | Celery |
+|--------|---------|----------|--------|
+| `fastapi-api` | fastapi | — | yes |
+| `fastapi-fullstack` | fastapi | react-vite | yes |
+| `fastapi-b2b-fullstack` | fastapi | react-vite | yes |
+| `fastapi-rsbuild-fullstack` | fastapi | react-rsbuild | yes |
+| `fastapi-nextjs-fullstack` | fastapi | nextjs | yes |
 
 ### Frontend-only presets
 

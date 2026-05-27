@@ -20,6 +20,11 @@ def generate_docker_compose(config: ProjectConfig) -> str:
 
         if config.is_nestjs_backend:
             services.append(_nestjs_api_dev_service(config))
+        elif config.is_fastapi_backend:
+            services.append(_fastapi_api_dev_service(config))
+            if config.use_celery:
+                services.append(_celery_worker_service(config))
+                services.append(_celery_beat_service(config))
         else:
             services.append(_api_dev_service(config))
             if config.use_celery:
@@ -136,6 +141,32 @@ def _nestjs_api_dev_service(config: ProjectConfig) -> str:
       HOST: 0.0.0.0
       DATABASE_URL: postgresql://postgres:postgres@db:5432/{db_name}
       REDIS_URL: redis://redis:6379
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy"""
+
+
+def _fastapi_api_dev_service(config: ProjectConfig) -> str:
+    port = config.backend_api_port
+    db_name = config.python_package_name
+    return f"""\
+  api-dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port {port} --reload
+    ports:
+      - "${{API_PORT:-{port}}}:{port}"
+    volumes:
+      - ./backend:/app
+    environment:
+      DEBUG: "true"
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/{db_name}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${{SECRET_KEY:-change-me-in-production}}
       CORS_ORIGINS: http://localhost:3000,http://localhost:5173
     depends_on:
       db:

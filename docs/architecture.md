@@ -48,9 +48,10 @@ src/mattstack/
 |-----|------|----------|-----------------|-----------------|
 | `django-ninja` | `BackendFramework.DJANGO_NINJA` | Python | `uv` | 8000 |
 | `django-matt` | `BackendFramework.DJANGO_MATT` | Python | `uv` | 8000 |
+| `fastapi` | `BackendFramework.FASTAPI` | Python | `uv` | 8000 |
 | `nestjs` | `BackendFramework.NESTJS` | TypeScript/Node.js | `bun` | 4000 |
 
-NestJS uses Bull (Redis-based) for queues — `use_celery` is always `False` for NestJS projects.
+NestJS uses Bull (Redis-based) for queues — `use_celery` is always `False` for NestJS projects. FastAPI uses Celery + Redis (same as Django backends).
 
 ## Frontend Frameworks
 
@@ -71,11 +72,14 @@ To avoid dev-server conflicts in fullstack projects:
 | Django | Vite | 8000 | 5173 |
 | Django | Rsbuild | 8000 | 3000 |
 | Django | Next.js | 8000 | 3000 |
+| FastAPI | Vite | 8000 | 5173 |
+| FastAPI | Rsbuild | 8000 | 3000 |
+| FastAPI | Next.js | 8000 | 3000 |
 | NestJS | Vite | 4000 | 5173 |
 | NestJS | Rsbuild | 4000 | 3000 |
 | NestJS | Next.js | 4000 | 3000 |
 
-`config.backend_api_port` encodes this: `4000` for NestJS, `8000` for Django.
+`config.backend_api_port` encodes this: `4000` for NestJS, `8000` for Django and FastAPI.
 
 ## Key Patterns
 
@@ -83,9 +87,9 @@ To avoid dev-server conflicts in fullstack projects:
 2. **Generators inherit BaseGenerator**. Each defines `steps` property; base runs them in sequence
 3. **ProjectConfig** is the single config object. Key properties:
    - `has_backend`, `has_frontend`, `is_fullstack`, `is_b2b`
-   - `is_nextjs`, `is_django_matt`, `is_nestjs_backend`, `is_django_backend`
+   - `is_nextjs`, `is_django_matt`, `is_fastapi_backend`, `is_nestjs_backend`, `is_django_backend`
    - `backend_api_port` — dynamically set based on framework
-4. **BackendFramework** enum: `django-ninja`, `django-matt`, `nestjs`
+4. **BackendFramework** enum: `django-ninja`, `django-matt`, `fastapi`, `nestjs`
 5. **FrontendFramework** enum: `react-vite`, `react-vite-starter`, `react-rsbuild`, `react-rsbuild-kibo`, `nextjs`
 6. **Parsers are pure functions** — regex-based, no AST, no deps. Return dataclasses
 7. **Auditors inherit BaseAuditor**. `run() → list[AuditFinding]`

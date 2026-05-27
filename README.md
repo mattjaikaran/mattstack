@@ -2,7 +2,7 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-784%20passing-brightgreen.svg)](#development)
+[![Tests](https://img.shields.io/badge/tests-786%20passing-brightgreen.svg)](#development)
 
 CLI to scaffold fullstack monorepos from battle-tested boilerplates, then generate features and audit for quality.
 
@@ -18,6 +18,7 @@ Skip the week of project setup — `mattstack init` clones production-ready back
 |-----------|----------|-------------|
 | `django-ninja` | Python | Django Ninja Extra — async REST API with Pydantic schemas |
 | `django-matt` | Python | MattAPI controllers + CRUDService pattern |
+| `fastapi` | Python | FastAPI + SQLAlchemy (async) + Alembic + Celery + Redis |
 | `nestjs` | TypeScript | NestJS v11 + Fastify + Drizzle ORM + JWT/OAuth/WebAuthn |
 
 ### Frontends
@@ -131,6 +132,16 @@ Run `mattstack info` to list all presets. Use `-p <preset>` with `mattstack init
 | `matt-fullstack` | django-matt | react-vite | yes |
 | `matt-b2b-fullstack` | django-matt | react-vite | yes |
 
+### FastAPI presets
+
+| Preset | Backend | Frontend | Celery |
+|--------|---------|----------|--------|
+| `fastapi-api` | fastapi | — | yes |
+| `fastapi-fullstack` | fastapi | react-vite | yes |
+| `fastapi-b2b-fullstack` | fastapi | react-vite | yes |
+| `fastapi-rsbuild-fullstack` | fastapi | react-rsbuild | yes |
+| `fastapi-nextjs-fullstack` | fastapi | nextjs | yes |
+
 ### NestJS presets
 
 | Preset | Backend | Frontend | Notes |
@@ -201,6 +212,37 @@ mattstack completions Shell completions (bash/zsh/fish)
 ```
 
 Full reference: [docs/commands.md](docs/commands.md)
+
+---
+
+## FastAPI Backend Details
+
+The `fastapi-boilerplate` is a production-ready async Python stack:
+
+- **Framework**: FastAPI + Uvicorn (ASGI, fully async)
+- **ORM**: SQLAlchemy 2.0 (async) + Alembic migrations + asyncpg driver
+- **Auth**: JWT (python-jose) + bcrypt + TOTP (pyotp) + WebAuthn
+- **Queues**: Celery + Redis (same pattern as Django backends)
+- **Email**: Resend integration
+- **File storage**: aioboto3 (S3-compatible)
+- **Payments**: Stripe
+- **Admin**: SQLAdmin panel at `/admin`
+- **Observability**: OpenTelemetry + Sentry + Prometheus
+- **Testing**: pytest + pytest-asyncio (real DB integration tests)
+- **Tooling**: uv (package manager), ruff (lint + format)
+
+Runs on **port 8000** alongside any React frontend.
+
+```bash
+# FastAPI monorepo workflow
+mattstack init my-app -p fastapi-fullstack
+cd my-app
+make setup             # uv sync --extra dev (backend) + bun install (frontend)
+make up                # Start Postgres + Redis via Docker
+make backend-migrate   # Run Alembic migrations
+make backend-dev       # http://localhost:8000 (docs at /docs)
+make frontend-dev      # http://localhost:5173
+```
 
 ---
 

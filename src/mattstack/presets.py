@@ -148,6 +148,46 @@ PRESETS: dict[str, Preset] = {
         variant=Variant.B2B,
         backend_framework=BackendFramework.DJANGO_MATT,
     ),
+    # FastAPI (Python/async) presets
+    "fastapi-api": Preset(
+        name="fastapi-api",
+        description="FastAPI API only (SQLAlchemy + Alembic + Celery + Redis)",
+        project_type=ProjectType.BACKEND_ONLY,
+        variant=Variant.STARTER,
+        backend_framework=BackendFramework.FASTAPI,
+    ),
+    "fastapi-fullstack": Preset(
+        name="fastapi-fullstack",
+        description="Fullstack monorepo (FastAPI + React Vite + TanStack Router)",
+        project_type=ProjectType.FULLSTACK,
+        variant=Variant.STARTER,
+        backend_framework=BackendFramework.FASTAPI,
+        frontend_framework=FrontendFramework.REACT_VITE,
+    ),
+    "fastapi-b2b-fullstack": Preset(
+        name="fastapi-b2b-fullstack",
+        description="B2B fullstack monorepo (FastAPI + React Vite, orgs/teams/roles)",
+        project_type=ProjectType.FULLSTACK,
+        variant=Variant.B2B,
+        backend_framework=BackendFramework.FASTAPI,
+        frontend_framework=FrontendFramework.REACT_VITE,
+    ),
+    "fastapi-rsbuild-fullstack": Preset(
+        name="fastapi-rsbuild-fullstack",
+        description="Fullstack monorepo (FastAPI + React Rsbuild + TanStack Router)",
+        project_type=ProjectType.FULLSTACK,
+        variant=Variant.STARTER,
+        backend_framework=BackendFramework.FASTAPI,
+        frontend_framework=FrontendFramework.REACT_RSBUILD,
+    ),
+    "fastapi-nextjs-fullstack": Preset(
+        name="fastapi-nextjs-fullstack",
+        description="Fullstack monorepo (FastAPI + Next.js App Router)",
+        project_type=ProjectType.FULLSTACK,
+        variant=Variant.STARTER,
+        backend_framework=BackendFramework.FASTAPI,
+        frontend_framework=FrontendFramework.NEXTJS,
+    ),
     # NestJS (Node.js/TypeScript) presets
     "nestjs-api": Preset(
         name="nestjs-api",

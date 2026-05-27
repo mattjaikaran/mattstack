@@ -22,6 +22,7 @@ class Variant(str, Enum):
 class BackendFramework(str, Enum):
     DJANGO_NINJA = "django-ninja"
     DJANGO_MATT = "django-matt"
+    FASTAPI = "fastapi"
     NESTJS = "nestjs"
 
 
@@ -47,9 +48,10 @@ class DeploymentTarget(str, Enum):
 
 
 REPO_URLS: dict[str, str] = {
-    # Python / Django backends
+    # Python backends
     "django-ninja": "https://github.com/mattjaikaran/django-ninja-boilerplate.git",
     "django-matt": "https://github.com/mattjaikaran/django-matt-boilerplate.git",
+    "fastapi": "https://github.com/mattjaikaran/fastapi-boilerplate.git",
     # Node.js / TypeScript backends
     "nestjs": "https://github.com/mattjaikaran/nestjs-boilerplate.git",
     # React frontends
@@ -121,6 +123,9 @@ class ProjectConfig:
         if self.backend_framework == BackendFramework.NESTJS:
             self.use_celery = False
             self.use_redis = True
+        # FastAPI uses Celery + Redis (same as Django)
+        if self.backend_framework == BackendFramework.FASTAPI and self.use_celery:
+            self.use_redis = True
         # Celery requires Redis
         if self.use_celery and not self.use_redis:
             self.use_redis = True
@@ -168,6 +173,10 @@ class ProjectConfig:
     @property
     def is_django_matt(self) -> bool:
         return self.backend_framework == BackendFramework.DJANGO_MATT
+
+    @property
+    def is_fastapi_backend(self) -> bool:
+        return self.backend_framework == BackendFramework.FASTAPI
 
     @property
     def is_nestjs_backend(self) -> bool:

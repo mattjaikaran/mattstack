@@ -12,6 +12,8 @@ def customize_backend(config: ProjectConfig) -> None:
     """Rename the backend project to match the project name."""
     if config.is_nestjs_backend:
         _customize_nestjs_backend(config)
+    elif config.is_fastapi_backend:
+        _customize_fastapi_backend(config)
     else:
         _customize_django_backend(config)
 
@@ -38,6 +40,19 @@ def _customize_django_backend(config: ProjectConfig) -> None:
         import shutil
 
         shutil.rmtree(cli_dir)
+
+
+def _customize_fastapi_backend(config: ProjectConfig) -> None:
+    """Rename a FastAPI backend project."""
+    pyproject = config.backend_dir / "pyproject.toml"
+    if pyproject.exists():
+        content = pyproject.read_text()
+        content = content.replace(
+            'name = "fastapi-postgres-boilerplate"',
+            f'name = "{config.name}-backend"',
+        )
+        pyproject.write_text(content)
+        print_info(f"Renamed backend to {config.name}-backend")
 
 
 def _customize_nestjs_backend(config: ProjectConfig) -> None:
