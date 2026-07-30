@@ -225,6 +225,31 @@ PRESETS: dict[str, Preset] = {
         use_celery=False,
     ),
 }
+    # django-matt example app presets (blog, portfolio, ecommerce)
+    "matt-blog": Preset(
+        name="matt-blog",
+        description="Blog fullstack (django-matt API + React Vite) with posts, comments, tags, RSS, search",
+        project_type=ProjectType.FULLSTACK,
+        variant=Variant.STARTER,
+        backend_framework=BackendFramework.DJANGO_MATT,
+        frontend_framework=FrontendFramework.REACT_VITE,
+    ),
+    "matt-portfolio": Preset(
+        name="matt-portfolio",
+        description="Portfolio fullstack (django-matt API + React Vite) with projects, skills, experience, contact",
+        project_type=ProjectType.FULLSTACK,
+        variant=Variant.STARTER,
+        backend_framework=BackendFramework.DJANGO_MATT,
+        frontend_framework=FrontendFramework.REACT_VITE,
+    ),
+    "matt-ecommerce": Preset(
+        name="matt-ecommerce",
+        description="Ecommerce fullstack (django-matt API + React Vite) with products, cart, Stripe checkout, orders",
+        project_type=ProjectType.FULLSTACK,
+        variant=Variant.STARTER,
+        backend_framework=BackendFramework.DJANGO_MATT,
+        frontend_framework=FrontendFramework.REACT_VITE,
+    ),
 
 
 def get_preset(name: str) -> Preset | None:
