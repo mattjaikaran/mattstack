@@ -545,5 +545,22 @@ def workflow(
     run_generate_workflow(path=path or Path.cwd(), platform=platform, dry_run=dry_run)
 
 
+@app.command()
+def protect(
+    path: Annotated[
+        Path | None,
+        typer.Option("--path", "-p", help="Project path"),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Preview changes without writing"),
+    ] = False,
+) -> None:
+    """Enable branch protection (no-commit-to-branch, CODEOWNERS, GitHub ruleset)."""
+    from mattstack.commands.protect import run_protect
+
+    run_protect(path=path or Path.cwd(), dry_run=dry_run)
+
+
 if __name__ == "__main__":
     app()
