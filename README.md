@@ -3,7 +3,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](CHANGELOG.md)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-806%20passing-brightgreen.svg)](#development)
+[![Tests](https://img.shields.io/badge/tests-863%20passing-brightgreen.svg)](#development)
 
 CLI to scaffold fullstack monorepos from battle-tested boilerplates, then generate features and audit for quality.
 
@@ -204,7 +204,12 @@ mattstack health      Service health checks
 mattstack hooks       Git hooks (install, status, run)
 mattstack workflow    Generate CI/CD (GitHub Actions, GitLab CI)
 mattstack env         Manage .env files
-mattstack rules       Generate AI assistant context files
+mattstack protect     Enable branch protection (hooks, CODEOWNERS, ruleset)
+mattstack board       Pluggable kanban board (Axis backend + stubs)
+mattstack todo        Move completed tasks to completed.md (date + SHA)
+mattstack notify      Send deploy notifications (hermes/telegram/webhook)
+mattstack verify      Enforce plan scope on changed files
+mattstack rules       Generate AI context files; sync harness adapters
 mattstack context     Dump project context (for AI prompts)
 mattstack info        Show presets, repos, frameworks
 mattstack doctor      Check dev environment
@@ -314,7 +319,7 @@ uv run mattstack --help
 
 ```bash
 uv sync --extra dev     # Install with dev deps
-uv run pytest -x -q    # 784 tests
+uv run pytest -x -q    # 863 tests
 uv run ruff check src/ tests/
 uv run ruff format src/ tests/
 ```
