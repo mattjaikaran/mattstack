@@ -565,5 +565,31 @@ def protect(
     run_protect(path=path or Path.cwd(), dry_run=dry_run)
 
 
+@app.command()
+def notify(
+    app: Annotated[str, typer.Option("--app", "-a", help="Application name")] = "",
+    commit: Annotated[str, typer.Option("--commit", "-c", help="Deploy commit SHA")] = "",
+    env: Annotated[str, typer.Option("--env", "-e", help="Deploy environment")] = "production",
+    frontend_url: Annotated[
+        str, typer.Option("--frontend-url", help="Deployed frontend URL")
+    ] = "",
+    backend_url: Annotated[
+        str, typer.Option("--backend-url", help="Deployed backend URL")
+    ] = "",
+    path: Annotated[Path | None, typer.Option("--path", "-p", help="Project path")] = None,
+) -> None:
+    """Send a deploy-complete notification via the configured backend."""
+    from mattstack.commands.notify import run_notify
+
+    run_notify(
+        path=path or Path.cwd(),
+        app=app,
+        commit=commit,
+        env=env,
+        frontend_url=frontend_url,
+        backend_url=backend_url,
+    )
+
+
 if __name__ == "__main__":
     app()
