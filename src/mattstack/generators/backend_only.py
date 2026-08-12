@@ -25,7 +25,7 @@ class BackendOnlyGenerator(BaseGenerator):
     """Generate a backend-only project (Django API)."""
 
     @property
-    def steps(self) -> list[tuple[str, Callable]]:
+    def steps(self) -> list[tuple[str, Callable[[], bool]]]:
         return [
             ("Creating project directory", self._step_create_dir),
             ("Cloning backend", self._step_clone_backend),

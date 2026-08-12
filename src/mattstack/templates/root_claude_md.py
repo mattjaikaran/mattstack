@@ -1,4 +1,5 @@
 """Root CLAUDE.md template for generated projects."""
+# ruff: noqa: E501  — template strings contain long lines by design
 
 from __future__ import annotations
 
@@ -53,7 +54,9 @@ def _structure(config: ProjectConfig) -> str:
         if config.is_nextjs:
             parts.append("- `frontend/` — Next.js (App Router, TypeScript, Tailwind)")
         elif config.frontend_framework == _KIBO:
-            parts.append("- `frontend/` — React + Rsbuild + Kibo UI + TypeScript (TanStack Router/Table)")
+            parts.append(
+                "- `frontend/` — React + Rsbuild + Kibo UI + TypeScript (TanStack Router/Table)"
+            )
         elif config.frontend_framework == _RSBUILD:
             parts.append("- `frontend/` — React + Rsbuild + TypeScript (TanStack Router)")
         else:
@@ -101,10 +104,14 @@ def _rules(config: ProjectConfig) -> str:
     ]
 
     if config.is_nestjs_backend:
-        lines.append("- **JavaScript/TypeScript packages**: ALWAYS use `bun`. NEVER use `npm`, `yarn`, or `pnpm`.")
+        lines.append(
+            "- **JavaScript/TypeScript packages**: ALWAYS use `bun`. NEVER use `npm`, `yarn`, or `pnpm`."
+        )
     else:
         lines.append("- **Python packages**: ALWAYS use `uv`. NEVER use pip, poetry, or conda.")
-        lines.append("- **JavaScript packages**: ALWAYS use `bun`. NEVER use `npm`, `yarn`, or `pnpm`.")
+        lines.append(
+            "- **JavaScript packages**: ALWAYS use `bun`. NEVER use `npm`, `yarn`, or `pnpm`."
+        )
 
     if config.has_backend:
         lines.append(
@@ -232,9 +239,13 @@ def _env_vars(config: ProjectConfig) -> str:
     parts: list[str] = ["## Environment Variables", ""]
     if config.has_backend:
         if config.is_nestjs_backend:
-            parts.append("- Root `.env`: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `REDIS_URL`")
+            parts.append(
+                "- Root `.env`: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `REDIS_URL`"
+            )
         else:
-            parts.append("- Root `.env`: `DATABASE_URL`, `DJANGO_SECRET_KEY`, `REDIS_URL` (if Redis)")
+            parts.append(
+                "- Root `.env`: `DATABASE_URL`, `DJANGO_SECRET_KEY`, `REDIS_URL` (if Redis)"
+            )
     if config.has_frontend:
         if config.is_nextjs:
             api_var = "NEXT_PUBLIC_API_BASE_URL"
@@ -354,25 +365,35 @@ def _mattstack_integration(config: ProjectConfig) -> str:
         "- `mattstack deps check` — Show outdated packages",
     ]
     if config.has_backend:
-        lines.extend([
-            "- `mattstack db migrate` — Run database migrations",
-            "- `mattstack db seed` — Seed database with sample data",
-        ])
+        lines.extend(
+            [
+                "- `mattstack db migrate` — Run database migrations",
+                "- `mattstack db seed` — Seed database with sample data",
+            ]
+        )
         if config.is_django_backend:
-            lines.append("- `mattstack generate model <Name> --fields \"...\"` — Scaffold Django model + schema + router")
+            lines.append(
+                '- `mattstack generate model <Name> --fields "..."` — Scaffold Django model + schema + router'
+            )
     if config.has_backend and config.has_frontend and config.is_django_backend:
-        lines.extend([
-            "- `mattstack sync types` — Generate TypeScript interfaces from Pydantic models",
-            "- `mattstack sync zod` — Generate Zod schemas from Pydantic models",
-            "- `mattstack sync api-client` — Generate TanStack Query hooks from Django routes",
-        ])
+        lines.extend(
+            [
+                "- `mattstack sync types` — Generate TypeScript interfaces from Pydantic models",
+                "- `mattstack sync zod` — Generate Zod schemas from Pydantic models",
+                "- `mattstack sync api-client` — Generate TanStack Query hooks from Django routes",
+            ]
+        )
     if config.has_frontend:
-        lines.extend([
-            "- `mattstack generate component <Name>` — Scaffold React component",
-            "- `mattstack generate page <name>` — Scaffold route page",
-        ])
-    lines.extend([
-        "- `mattstack hooks install` — Install pre-commit git hooks",
-        "- `mattstack workflow` — Generate CI/CD workflows (GitHub Actions)",
-    ])
+        lines.extend(
+            [
+                "- `mattstack generate component <Name>` — Scaffold React component",
+                "- `mattstack generate page <name>` — Scaffold route page",
+            ]
+        )
+    lines.extend(
+        [
+            "- `mattstack hooks install` — Install pre-commit git hooks",
+            "- `mattstack workflow` — Generate CI/CD workflows (GitHub Actions)",
+        ]
+    )
     return "\n".join(lines)

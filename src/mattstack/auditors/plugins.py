@@ -32,7 +32,7 @@ def discover_plugins(project_path: Path) -> list[type[BaseAuditor]]:
     return plugins
 
 
-def _load_plugin(path: Path) -> tuple[type[BaseAuditor] | None, dict | None]:
+def _load_plugin(path: Path) -> tuple[type[BaseAuditor] | None, dict[str, object] | None]:
     """Load a single plugin file and find the BaseAuditor subclass."""
     module_name = f"mattstack_plugin_{path.stem}"
     spec = importlib.util.spec_from_file_location(module_name, path)

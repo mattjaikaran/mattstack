@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 from typing import Annotated
 
+# ruff: noqa: E501  — template strings contain long lines by design
 import typer
 
 from mattstack.utils.console import console, print_error, print_info, print_success, print_warning
@@ -120,9 +121,7 @@ def _detect_django_app(project_root: Path, app_override: str | None) -> str:
     apps_dir = project_root / "backend" / "apps"
     if apps_dir.is_dir():
         candidates = [
-            d.name
-            for d in apps_dir.iterdir()
-            if d.is_dir() and not d.name.startswith("__")
+            d.name for d in apps_dir.iterdir() if d.is_dir() and not d.name.startswith("__")
         ]
         if len(candidates) == 1:
             return candidates[0]
@@ -234,7 +233,9 @@ def _update_init_import(init_file: Path, import_line: str, *, dry_run: bool) -> 
     return True
 
 
-def _generate_admin_file(pascal: str, snake: str, app_name: str, fields: list[tuple[str, str, str | None]]) -> str:
+def _generate_admin_file(
+    pascal: str, snake: str, app_name: str, fields: list[tuple[str, str, str | None]]
+) -> str:
     """Generate a per-model unfold admin file."""
     str_fields = [fname for fname, ftype, _ in fields if ftype in ("str", "text", "email")]
     list_display_fields = str_fields[:3] if str_fields else []
@@ -257,14 +258,21 @@ class {pascal}Admin(ModelAdmin):
 '''
 
 
-def _build_admin_file(pascal: str, snake: str, app_name: str, fields: list[tuple[str, str, str | None]]) -> str:
+def _build_admin_file(
+    pascal: str, snake: str, app_name: str, fields: list[tuple[str, str, str | None]]
+) -> str:
     """Build per-model unfold admin file content."""
     str_fields = [fname for fname, ftype, _ in fields if ftype in ("str", "text", "email")]
     display_fields = str_fields[:3]
     list_display_items = ["id"] + display_fields + ["created_at"]
     list_display = "[" + ", ".join(f'"{f}"' for f in list_display_items) + "]"
     search_fields: list[str] = display_fields if display_fields else ["id"]
-    search_tuple = "(" + ", ".join(f'"{f}"' for f in search_fields) + ("," if len(search_fields) == 1 else "") + ")"
+    search_tuple = (
+        "("
+        + ", ".join(f'"{f}"' for f in search_fields)
+        + ("," if len(search_fields) == 1 else "")
+        + ")"
+    )
 
     return (
         f'"""Admin configuration for {pascal}."""\n'
@@ -320,11 +328,13 @@ def _generate_django_model(
             snake_fk = _to_snake(fk)
             lines.append(f"from .{snake_fk} import {fk}")
 
-    lines.extend([
-        "",
-        "",
-        f"class {pascal}(AbstractBaseModel):",
-    ])
+    lines.extend(
+        [
+            "",
+            "",
+            f"class {pascal}(AbstractBaseModel):",
+        ]
+    )
 
     if not fields:
         lines.append("    pass")
@@ -333,21 +343,23 @@ def _generate_django_model(
             if ftype == "fk" and fk_target:
                 lines.append(
                     f"    {fname} = models.ForeignKey("
-                    f"{fk_target}, on_delete=models.CASCADE, related_name=\"{_to_snake(pascal)}s\")"
+                    f'{fk_target}, on_delete=models.CASCADE, related_name="{_to_snake(pascal)}s")'
                 )
             else:
                 django_field = DJANGO_FIELD_MAP[ftype]
                 lines.append(f"    {fname} = models.{django_field}")
 
-    lines.extend([
-        "",
-        "    class Meta:",
-        f'        verbose_name = "{pascal}"',
-        f'        verbose_name_plural = "{pascal}s"',
-        f'        ordering = ["-created_at"]',
-        "",
-        "    def __str__(self) -> str:",
-    ])
+    lines.extend(
+        [
+            "",
+            "    class Meta:",
+            f'        verbose_name = "{pascal}"',
+            f'        verbose_name_plural = "{pascal}s"',
+            '        ordering = ["-created_at"]',
+            "",
+            "    def __str__(self) -> str:",
+        ]
+    )
 
     str_field = "pk"
     for fname, ftype, _ in fields:
@@ -438,26 +450,32 @@ def _generate_pydantic_schema(
         return result
 
     # BaseSchema
-    lines.extend([
-        "",
-        f"class {pascal}BaseSchema(Schema):",
-    ])
+    lines.extend(
+        [
+            "",
+            f"class {pascal}BaseSchema(Schema):",
+        ]
+    )
     lines.extend(_field_lines())
 
     # CreateSchema
-    lines.extend([
-        "",
-        "",
-        f"class {pascal}CreateSchema({pascal}BaseSchema):",
-        "    pass",
-    ])
+    lines.extend(
+        [
+            "",
+            "",
+            f"class {pascal}CreateSchema({pascal}BaseSchema):",
+            "    pass",
+        ]
+    )
 
     # UpdateSchema
-    lines.extend([
-        "",
-        "",
-        f"class {pascal}UpdateSchema({pascal}BaseSchema):",
-    ])
+    lines.extend(
+        [
+            "",
+            "",
+            f"class {pascal}UpdateSchema({pascal}BaseSchema):",
+        ]
+    )
     if not fields:
         lines.append("    pass")
     else:
@@ -466,15 +484,17 @@ def _generate_pydantic_schema(
             lines.append(f"    {fname}: {py_type} | None = None")
 
     # ResponseSchema
-    lines.extend([
-        "",
-        "",
-        f"class {pascal}ResponseSchema({pascal}BaseSchema):",
-        "    id: UUID",
-        "    created_at: datetime",
-        "    updated_at: datetime",
-        "    model_config = ConfigDict(from_attributes=True)",
-    ])
+    lines.extend(
+        [
+            "",
+            "",
+            f"class {pascal}ResponseSchema({pascal}BaseSchema):",
+            "    id: UUID",
+            "    created_at: datetime",
+            "    updated_at: datetime",
+            "    model_config = ConfigDict(from_attributes=True)",
+        ]
+    )
 
     lines.append("")
     return "\n".join(lines)
@@ -517,7 +537,7 @@ def _generate_api_controller(
         f'        """List {pascal}s with pagination."""',
         f"        qs = {pascal}.objects.all()",
         "        if search:",
-        f"            qs = qs.filter(id__icontains=search)",
+        "            qs = qs.filter(id__icontains=search)",
         "        return qs[offset:offset + limit]",
         "",
         f'    @http_get("/{{{snake}_id}}", response={{200: {pascal}ResponseSchema, 404: dict}}, auth=OptionalJWTAuth())',
@@ -573,32 +593,34 @@ def _generate_django_matt_service(
     search_line = (
         f'    search_fields = ["{search_field}"]'
         if search_field
-        else '    search_fields: list[str] = []'
+        else "    search_fields: list[str] = []"
     )
 
-    return "\n".join([
-        f'"""CRUDService for {pascal}."""',
-        "",
-        "from __future__ import annotations",
-        "",
-        "from django_matt.services import CRUDService",
-        "",
-        f"from apps.{app_name}.models.{snake} import {pascal}",
-        f"from apps.{app_name}.schemas.{snake} import (",
-        f"    {pascal}CreateSchema,",
-        f"    {pascal}ResponseSchema,",
-        f"    {pascal}UpdateSchema,",
-        ")",
-        "",
-        "",
-        f"class {pascal}Service(CRUDService):",
-        f"    model = {pascal}",
-        f"    create_schema = {pascal}CreateSchema",
-        f"    update_schema = {pascal}UpdateSchema",
-        f"    response_schema = {pascal}ResponseSchema",
-        search_line,
-        "",
-    ])
+    return "\n".join(
+        [
+            f'"""CRUDService for {pascal}."""',
+            "",
+            "from __future__ import annotations",
+            "",
+            "from django_matt.services import CRUDService",
+            "",
+            f"from apps.{app_name}.models.{snake} import {pascal}",
+            f"from apps.{app_name}.schemas.{snake} import (",
+            f"    {pascal}CreateSchema,",
+            f"    {pascal}ResponseSchema,",
+            f"    {pascal}UpdateSchema,",
+            ")",
+            "",
+            "",
+            f"class {pascal}Service(CRUDService):",
+            f"    model = {pascal}",
+            f"    create_schema = {pascal}CreateSchema",
+            f"    update_schema = {pascal}UpdateSchema",
+            f"    response_schema = {pascal}ResponseSchema",
+            search_line,
+            "",
+        ]
+    )
 
 
 def _generate_django_matt_controller(
@@ -611,62 +633,68 @@ def _generate_django_matt_controller(
     snake = _to_snake(name)
 
     str_fields = [fname for fname, ftype, _ in fields if ftype in ("str", "text", "email")]
-    search_filter = f'qs.filter({str_fields[0]}__icontains=search)' if str_fields else "qs.filter(id__icontains=search)"
+    search_filter = (
+        f"qs.filter({str_fields[0]}__icontains=search)"
+        if str_fields
+        else "qs.filter(id__icontains=search)"
+    )
 
-    return "\n".join([
-        f'"""APIController for {pascal}."""',
-        "",
-        "from __future__ import annotations",
-        "",
-        "from uuid import UUID",
-        "",
-        "from django.shortcuts import get_object_or_404",
-        "from django_matt import APIController, delete, get, post, put",
-        "from django_matt.auth import JWTAuth, OptionalJWTAuth",
-        "",
-        f"from apps.{app_name}.models.{snake} import {pascal}",
-        f"from apps.{app_name}.schemas.{snake} import (",
-        f"    {pascal}CreateSchema,",
-        f"    {pascal}ResponseSchema,",
-        f"    {pascal}UpdateSchema,",
-        ")",
-        f"from apps.{app_name}.services.{snake} import {pascal}Service",
-        "",
-        "",
-        f"class {pascal}Controller(APIController):",
-        f'    prefix = "/{snake}s"',
-        f'    tags = ["{pascal}"]',
-        "",
-        f'    @get("/", response=list[{pascal}ResponseSchema])',
-        f"    def list_{snake}s(self, request, search: str | None = None, limit: int = 20, offset: int = 0):",
-        f'        """List {pascal}s with optional search and pagination."""',
-        f"        qs = {pascal}.objects.all()",
-        "        if search:",
-        f"            qs = {search_filter}",
-        "        return qs[offset:offset + limit]",
-        "",
-        f'    @get("/{{{snake}_id}}", response={pascal}ResponseSchema, auth=OptionalJWTAuth())',
-        f"    def get_{snake}(self, request, {snake}_id: UUID):",
-        f'        """Get a single {pascal}."""',
-        f"        return get_object_or_404({pascal}, id={snake}_id)",
-        "",
-        f'    @post("/", response={pascal}ResponseSchema, auth=JWTAuth(), status=201)',
-        f"    def create_{snake}(self, request, payload: {pascal}CreateSchema):",
-        f'        """Create a new {pascal}."""',
-        f"        return {pascal}Service().create(payload)",
-        "",
-        f'    @put("/{{{snake}_id}}", response={pascal}ResponseSchema, auth=JWTAuth())',
-        f"    def update_{snake}(self, request, {snake}_id: UUID, payload: {pascal}UpdateSchema):",
-        f'        """Update a {pascal}."""',
-        f"        return {pascal}Service().update({snake}_id, payload)",
-        "",
-        f'    @delete("/{{{snake}_id}}", auth=JWTAuth(), status=204)',
-        f"    def delete_{snake}(self, request, {snake}_id: UUID):",
-        f'        """Delete a {pascal}."""',
-        f"        {pascal}Service().delete({snake}_id)",
-        "        return None",
-        "",
-    ])
+    return "\n".join(
+        [
+            f'"""APIController for {pascal}."""',
+            "",
+            "from __future__ import annotations",
+            "",
+            "from uuid import UUID",
+            "",
+            "from django.shortcuts import get_object_or_404",
+            "from django_matt import APIController, delete, get, post, put",
+            "from django_matt.auth import JWTAuth, OptionalJWTAuth",
+            "",
+            f"from apps.{app_name}.models.{snake} import {pascal}",
+            f"from apps.{app_name}.schemas.{snake} import (",
+            f"    {pascal}CreateSchema,",
+            f"    {pascal}ResponseSchema,",
+            f"    {pascal}UpdateSchema,",
+            ")",
+            f"from apps.{app_name}.services.{snake} import {pascal}Service",
+            "",
+            "",
+            f"class {pascal}Controller(APIController):",
+            f'    prefix = "/{snake}s"',
+            f'    tags = ["{pascal}"]',
+            "",
+            f'    @get("/", response=list[{pascal}ResponseSchema])',
+            f"    def list_{snake}s(self, request, search: str | None = None, limit: int = 20, offset: int = 0):",
+            f'        """List {pascal}s with optional search and pagination."""',
+            f"        qs = {pascal}.objects.all()",
+            "        if search:",
+            f"            qs = {search_filter}",
+            "        return qs[offset:offset + limit]",
+            "",
+            f'    @get("/{{{snake}_id}}", response={pascal}ResponseSchema, auth=OptionalJWTAuth())',
+            f"    def get_{snake}(self, request, {snake}_id: UUID):",
+            f'        """Get a single {pascal}."""',
+            f"        return get_object_or_404({pascal}, id={snake}_id)",
+            "",
+            f'    @post("/", response={pascal}ResponseSchema, auth=JWTAuth(), status=201)',
+            f"    def create_{snake}(self, request, payload: {pascal}CreateSchema):",
+            f'        """Create a new {pascal}."""',
+            f"        return {pascal}Service().create(payload)",
+            "",
+            f'    @put("/{{{snake}_id}}", response={pascal}ResponseSchema, auth=JWTAuth())',
+            f"    def update_{snake}(self, request, {snake}_id: UUID, payload: {pascal}UpdateSchema):",
+            f'        """Update a {pascal}."""',
+            f"        return {pascal}Service().update({snake}_id, payload)",
+            "",
+            f'    @delete("/{{{snake}_id}}", auth=JWTAuth(), status=204)',
+            f"    def delete_{snake}(self, request, {snake}_id: UUID):",
+            f'        """Delete a {pascal}."""',
+            f"        {pascal}Service().delete({snake}_id)",
+            "        return None",
+            "",
+        ]
+    )
 
 
 def _generate_django_matt_endpoint_method(
@@ -680,16 +708,18 @@ def _generate_django_matt_endpoint_method(
     if not func_name:
         func_name = "root"
 
-    auth_param = f", auth=JWTAuth()" if auth else ""
+    auth_param = ", auth=JWTAuth()" if auth else ""
     decorator = f'    @{method_lower}("{path}"{auth_param})'
 
-    return "\n".join([
-        decorator,
-        f"    def {func_name}(self, request):",
-        f'        """Handle {method} {path}."""',
-        '        return {"message": "Not implemented"}',
-        "",
-    ])
+    return "\n".join(
+        [
+            decorator,
+            f"    def {func_name}(self, request):",
+            f'        """Handle {method} {path}."""',
+            '        return {"message": "Not implemented"}',
+            "",
+        ]
+    )
 
 
 def _generate_django_matt_controller_file(segment: str, endpoint_method: str, auth: bool) -> str:
@@ -709,9 +739,7 @@ def _generate_django_matt_controller_file(segment: str, endpoint_method: str, au
         f"class {pascal}Controller(APIController):\n"
         f'    prefix = "/{segment}s"\n'
         f'    tags = ["{pascal}"]\n'
-        "\n"
-        + endpoint_method
-        + "\n"
+        "\n" + endpoint_method + "\n"
     )
 
 
@@ -726,17 +754,19 @@ def _generate_endpoint_method(
     if not func_name:
         func_name = "root"
 
-    auth_param = f", auth=JWTAuth()" if auth else ""
+    auth_param = ", auth=JWTAuth()" if auth else ""
     decorator = f'    @http_{method_lower}("{path}"{auth_param})'
 
-    return "\n".join([
-        decorator,
-        "    @handle_exceptions()",
-        f"    def {func_name}(self, request):",
-        f'        """Handle {method} {path}."""',
-        '        return {"message": "Not implemented"}',
-        "",
-    ])
+    return "\n".join(
+        [
+            decorator,
+            "    @handle_exceptions()",
+            f"    def {func_name}(self, request):",
+            f'        """Handle {method} {path}."""',
+            '        return {"message": "Not implemented"}',
+            "",
+        ]
+    )
 
 
 def _generate_controller_file(segment: str, endpoint_method: str, auth: bool) -> str:
@@ -770,7 +800,7 @@ def _generate_react_component(name: str) -> str:
         "",
         f"export function {name}({{ className }}: {name}Props) {{",
         "  return (",
-        f'    <div className={{className}}>',
+        "    <div className={className}>",
         f"      <h2>{name}</h2>",
         "    </div>",
         "  );",
@@ -791,7 +821,7 @@ def _generate_react_test(name: str) -> str:
         f'import {{ {name} }} from "./index";',
         "",
         f'describe("{name}", () => {{',
-        f'  it("renders without crashing", () => {{',
+        '  it("renders without crashing", () => {',
         f"    render(<{name} />);",
         f'    expect(screen.getByText("{name}")).toBeDefined();',
         "  });",
@@ -806,7 +836,7 @@ def _generate_tanstack_page(name: str) -> str:
     snake = _to_snake(name)
     pascal = _to_pascal(name)
     lines = [
-        f'import {{ createFileRoute }} from "@tanstack/react-router";',
+        'import { createFileRoute } from "@tanstack/react-router";',
         "",
         f'export const Route = createFileRoute("/{snake}")({{',
         f"  component: {pascal}Page,",
@@ -814,7 +844,7 @@ def _generate_tanstack_page(name: str) -> str:
         "",
         f"function {pascal}Page() {{",
         "  return (",
-        f'    <div className="container mx-auto p-4">',
+        '    <div className="container mx-auto p-4">',
         f"      <h1>{pascal}</h1>",
         "    </div>",
         "  );",
@@ -830,7 +860,7 @@ def _generate_nextjs_page(name: str) -> str:
     lines = [
         f"export default function {pascal}Page() {{",
         "  return (",
-        f'    <div className="container mx-auto p-4">',
+        '    <div className="container mx-auto p-4">',
         f"      <h1>{pascal}</h1>",
         "    </div>",
         "  );",
@@ -857,7 +887,7 @@ def _generate_hook(name: str) -> str:
         "    setLoading(true);",
         "    setError(null);",
         "    try {",
-        '      // TODO: implement',
+        "      // TODO: implement",
         "      setData(null);",
         "    } catch (err) {",
         "      setError(err instanceof Error ? err : new Error(String(err)));",
@@ -904,7 +934,14 @@ def _generate_ts_types(name: str, fields: list[tuple[str, str, str | None]]) -> 
         update_lines.append(f"  {fname}?: {ts_type};")
     update_lines.append("}")
 
-    return "\n".join(lines) + "\n\n" + "\n".join(create_lines) + "\n\n" + "\n".join(update_lines) + "\n"
+    return (
+        "\n".join(lines)
+        + "\n\n"
+        + "\n".join(create_lines)
+        + "\n\n"
+        + "\n".join(update_lines)
+        + "\n"
+    )
 
 
 def _generate_ts_api_client(name: str, fields: list[tuple[str, str, str | None]]) -> str:
@@ -921,36 +958,36 @@ def _generate_ts_api_client(name: str, fields: list[tuple[str, str, str | None]]
         + f'\nconst BASE_URL = "http://localhost:8000";\n\n'
         f"export async function list{pascal}s(page = 1, pageSize = 20): Promise<{pascal}[]> {{\n"
         f"  const offset = (page - 1) * pageSize;\n"
-        f'  const res = await fetch(`${{BASE_URL}}/{snake}s/?limit=${{pageSize}}&offset=${{offset}}`);\n'
-        f'  if (!res.ok) throw new Error(`Failed to list {snake}s: ${{res.statusText}}`);\n'
+        f"  const res = await fetch(`${{BASE_URL}}/{snake}s/?limit=${{pageSize}}&offset=${{offset}}`);\n"
+        f"  if (!res.ok) throw new Error(`Failed to list {snake}s: ${{res.statusText}}`);\n"
         f"  return res.json();\n"
         f"}}\n\n"
         f"export async function get{pascal}(id: string): Promise<{pascal}> {{\n"
-        f'  const res = await fetch(`${{BASE_URL}}/{snake}s/${{id}}`);\n'
-        f'  if (!res.ok) throw new Error(`Failed to get {snake}: ${{res.statusText}}`);\n'
+        f"  const res = await fetch(`${{BASE_URL}}/{snake}s/${{id}}`);\n"
+        f"  if (!res.ok) throw new Error(`Failed to get {snake}: ${{res.statusText}}`);\n"
         f"  return res.json();\n"
         f"}}\n\n"
         f"export async function create{pascal}(data: {pascal}Create): Promise<{pascal}> {{\n"
-        f'  const res = await fetch(`${{BASE_URL}}/{snake}s/`, {{\n'
+        f"  const res = await fetch(`${{BASE_URL}}/{snake}s/`, {{\n"
         f'    method: "POST",\n'
         f'    headers: {{ "Content-Type": "application/json" }},\n'
         f"    body: JSON.stringify(data),\n"
         f"  }});\n"
-        f'  if (!res.ok) throw new Error(`Failed to create {snake}: ${{res.statusText}}`);\n'
+        f"  if (!res.ok) throw new Error(`Failed to create {snake}: ${{res.statusText}}`);\n"
         f"  return res.json();\n"
         f"}}\n\n"
         f"export async function update{pascal}(id: string, data: {pascal}Update): Promise<{pascal}> {{\n"
-        f'  const res = await fetch(`${{BASE_URL}}/{snake}s/${{id}}`, {{\n'
+        f"  const res = await fetch(`${{BASE_URL}}/{snake}s/${{id}}`, {{\n"
         f'    method: "PUT",\n'
         f'    headers: {{ "Content-Type": "application/json" }},\n'
         f"    body: JSON.stringify(data),\n"
         f"  }});\n"
-        f'  if (!res.ok) throw new Error(`Failed to update {snake}: ${{res.statusText}}`);\n'
+        f"  if (!res.ok) throw new Error(`Failed to update {snake}: ${{res.statusText}}`);\n"
         f"  return res.json();\n"
         f"}}\n\n"
         f"export async function delete{pascal}(id: string): Promise<void> {{\n"
         f'  const res = await fetch(`${{BASE_URL}}/{snake}s/${{id}}`, {{ method: "DELETE" }});\n'
-        f'  if (!res.ok) throw new Error(`Failed to delete {snake}: ${{res.statusText}}`);\n'
+        f"  if (!res.ok) throw new Error(`Failed to delete {snake}: ${{res.statusText}}`);\n"
         f"}}\n"
     )
 
@@ -959,14 +996,14 @@ def _generate_tanstack_hooks(name: str, fields: list[tuple[str, str, str | None]
     """Generate TanStack Query v5 hooks for all CRUD operations."""
     pascal = _to_pascal(name)
     snake = _to_snake(name)
-    camel = _to_camel(name)
+    _camel = _to_camel(name)  # noqa: F841 — reserved for future use
     plural_pascal = f"{pascal}s"
     plural_snake = f"{snake}s"
 
     return (
         "// Auto-generated by mattstack generate crud\n"
         'import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";\n'
-        f'import {{\n'
+        f"import {{\n"
         f"  list{plural_pascal},\n"
         f"  get{pascal},\n"
         f"  create{pascal},\n"
@@ -1034,13 +1071,13 @@ def _generate_react_list_component(name: str, fields: list[tuple[str, str, str |
         f'import {{ use{pascal}List }} from "@/hooks/use{pascal}s";\n\n'
         f"export function {pascal}List() {{\n"
         f"  const {{ data: {plural_snake}, isLoading, error }} = use{pascal}List();\n\n"
-        f'  if (isLoading) return <div>Loading {plural_snake}...</div>;\n'
-        f'  if (error) return <div>Error: {{(error as Error).message}}</div>;\n'
-        f'  if (!{plural_snake}?.length) return <div>No {plural_snake} found.</div>;\n\n'
+        f"  if (isLoading) return <div>Loading {plural_snake}...</div>;\n"
+        f"  if (error) return <div>Error: {{(error as Error).message}}</div>;\n"
+        f"  if (!{plural_snake}?.length) return <div>No {plural_snake} found.</div>;\n\n"
         f"  return (\n"
         f"    <ul>\n"
         f"      {{{plural_snake}.map(({camel}) => (\n"
-        f'        <li key={{{camel}.id}}>{{{camel}.{display_field}}}</li>\n'
+        f"        <li key={{{camel}.id}}>{{{camel}.{display_field}}}</li>\n"
         f"      ))}}\n"
         f"    </ul>\n"
         f"  );\n"
@@ -1076,7 +1113,7 @@ def _generate_tanstack_crud_page(name: str) -> str:
 def _generate_nextjs_crud_page(name: str) -> str:
     """Generate a Next.js app router page for the CRUD list view."""
     pascal = _to_pascal(name)
-    snake = _to_snake(name)
+    _snake = _to_snake(name)  # noqa: F841 — reserved for future use
 
     return (
         "// Auto-generated by mattstack generate crud\n"
@@ -1140,16 +1177,16 @@ def _generate_pytest_api_tests(
         f'        response = self.client.get("/api/{plural_snake}/{null_uuid}")\n'
         f"        assert response.status_code == 404\n\n"
         f"    def test_create_{snake}_unauthenticated(self) -> None:\n"
-        f'        response = self.client.post(\n'
+        f"        response = self.client.post(\n"
         f'            "/api/{plural_snake}/",\n'
-        f'            data={payload_repr},\n'
+        f"            data={payload_repr},\n"
         f'            content_type="application/json",\n'
         f"        )\n"
         f"        assert response.status_code in (401, 403)\n\n"
         f"    def test_update_{snake}_unauthenticated(self) -> None:\n"
-        f'        response = self.client.put(\n'
+        f"        response = self.client.put(\n"
         f'            "/api/{plural_snake}/{null_uuid}",\n'
-        f"            data=\"{{}}\",\n"
+        f'            data="{{}}",\n'
         f'            content_type="application/json",\n'
         f"        )\n"
         f"        assert response.status_code in (401, 403)\n\n"
@@ -1185,7 +1222,7 @@ def _generate_vitest_component_test(name: str) -> str:
         f'    expect(screen.getByText("No {plural_snake} found.")).toBeDefined();\n'
         f"  }});\n\n"
         f'  it("renders loading state", () => {{\n'
-        f'    vi.mocked(use{pascal}List).mockReturnValue({{ data: undefined, isLoading: true, error: null }} as never);\n'
+        f"    vi.mocked(use{pascal}List).mockReturnValue({{ data: undefined, isLoading: true, error: null }} as never);\n"
         f"    const queryClient = new QueryClient();\n"
         f"    render(\n"
         f"      <QueryClientProvider client={{queryClient}}>\n"
@@ -1235,7 +1272,9 @@ def model(
     is_django_matt = backend_fw == "django-matt"
 
     if not fields and not empty:
-        print_error("No --fields given. Pass at least one field or use --empty to allow an empty model.")
+        print_error(
+            "No --fields given. Pass at least one field or use --empty to allow an empty model."
+        )
         raise typer.Exit(code=1)
 
     parsed = _parse_fields(fields or [])
@@ -1245,7 +1284,7 @@ def model(
     # Validate FK targets exist in the backend models directory
     backend = project_root / "backend"
     if backend.is_dir() and not dry_run:
-        for fname, ftype, fk_target in parsed:
+        for _, ftype, fk_target in parsed:
             if ftype == "fk" and fk_target:
                 target_snake = _to_snake(fk_target)
                 target_file = backend / "apps" / app_name / "models" / f"{target_snake}.py"
@@ -1290,13 +1329,17 @@ def model(
     _ensure_dir(api_dir, dry_run=dry_run)
     _ensure_init(api_dir, dry_run=dry_run)
     if is_django_matt:
-        _write_file(api_file, _generate_django_matt_controller(name, parsed, app_name), dry_run=dry_run)
+        _write_file(
+            api_file, _generate_django_matt_controller(name, parsed, app_name), dry_run=dry_run
+        )
         # Also write CRUDService
         service_dir = backend / "apps" / app_name / "services"
         service_file = service_dir / f"{snake}.py"
         _ensure_dir(service_dir, dry_run=dry_run)
         _ensure_init(service_dir, dry_run=dry_run)
-        _write_file(service_file, _generate_django_matt_service(name, parsed, app_name), dry_run=dry_run)
+        _write_file(
+            service_file, _generate_django_matt_service(name, parsed, app_name), dry_run=dry_run
+        )
         created.append(service_file)
     else:
         _write_file(api_file, _generate_api_controller(name, parsed, app_name), dry_run=dry_run)
@@ -1346,8 +1389,8 @@ def model(
 
     elapsed = time.monotonic() - start
     console.print(
-        f"\n[bold]Next steps:[/bold]\n"
-        f"  cd backend && uv run python manage.py makemigrations && uv run python manage.py migrate"
+        "\n[bold]Next steps:[/bold]\n"
+        "  cd backend && uv run python manage.py makemigrations && uv run python manage.py migrate"
     )
     if wiring_warnings:
         for w in wiring_warnings:
@@ -1419,9 +1462,17 @@ def endpoint(
             print_success(f"Appended {method} {route_path} to {controller_file}")
         else:
             if is_django_matt:
-                _write_file(controller_file, _generate_django_matt_controller_file(segment, endpoint_method, auth), dry_run=False)
+                _write_file(
+                    controller_file,
+                    _generate_django_matt_controller_file(segment, endpoint_method, auth),
+                    dry_run=False,
+                )
             else:
-                _write_file(controller_file, _generate_controller_file(segment, endpoint_method, auth), dry_run=False)
+                _write_file(
+                    controller_file,
+                    _generate_controller_file(segment, endpoint_method, auth),
+                    dry_run=False,
+                )
             print_success(f"Created {controller_file}")
 
     elapsed = time.monotonic() - start
@@ -1654,7 +1705,9 @@ def crud(
     framework = _detect_frontend_framework(project_root)
 
     if not fields:
-        print_error("No --fields given. Pass at least one field, e.g. --fields title:str price:decimal")
+        print_error(
+            "No --fields given. Pass at least one field, e.g. --fields title:str price:decimal"
+        )
         raise typer.Exit(code=1)
 
     parsed = _parse_fields(fields)
@@ -1718,7 +1771,9 @@ def crud(
 
     # Auto-wiring: admin/__init__.py
     admin_init = admin_dir / "__init__.py"
-    if _update_init_import(admin_init, f"from .{snake}_admin import {pascal}Admin", dry_run=dry_run):
+    if _update_init_import(
+        admin_init, f"from .{snake}_admin import {pascal}Admin", dry_run=dry_run
+    ):
         updated.append(admin_init)
 
     # api/urls.py warning

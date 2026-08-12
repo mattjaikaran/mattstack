@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import io
 import json
 import subprocess
 import threading
@@ -30,9 +29,7 @@ class TestHasFrontend:
     def test_has_frontend_when_lint_script_exists(self, tmp_path: Path) -> None:
         frontend = tmp_path / "frontend"
         frontend.mkdir()
-        (frontend / "package.json").write_text(
-            json.dumps({"scripts": {"lint": "eslint ."}})
-        )
+        (frontend / "package.json").write_text(json.dumps({"scripts": {"lint": "eslint ."}}))
         assert _has_frontend(tmp_path) is True
 
     def test_has_frontend_when_lint_fix_script_exists(self, tmp_path: Path) -> None:
@@ -46,9 +43,7 @@ class TestHasFrontend:
     def test_no_frontend_when_no_lint_script(self, tmp_path: Path) -> None:
         frontend = tmp_path / "frontend"
         frontend.mkdir()
-        (frontend / "package.json").write_text(
-            json.dumps({"scripts": {"dev": "vite"}})
-        )
+        (frontend / "package.json").write_text(json.dumps({"scripts": {"dev": "vite"}}))
         assert _has_frontend(tmp_path) is False
 
     def test_no_frontend_when_no_package_json(self, tmp_path: Path) -> None:
@@ -94,7 +89,9 @@ class TestRunLint:
         mock_proc.returncode = 0
         mock_proc.wait.return_value = None
 
-        with patch("mattstack.commands.lint.subprocess.Popen", return_value=mock_proc) as mock_popen:
+        with patch(
+            "mattstack.commands.lint.subprocess.Popen", return_value=mock_proc
+        ) as mock_popen:
             run_lint(tmp_path, parallel=True)
 
         assert mock_popen.call_count == 2

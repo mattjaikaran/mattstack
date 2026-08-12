@@ -3,23 +3,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
 
 from mattstack.commands.sync import (
     API_ERROR_INTERFACE,
-    _infer_response_type,
     _pascal_to_snake,
     _route_to_hooks,
-    _snake_to_camel,
 )
 from mattstack.parsers.django_routes import Route
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _route(method: str, path: str, func: str, is_stub: bool = False) -> Route:
     return Route(

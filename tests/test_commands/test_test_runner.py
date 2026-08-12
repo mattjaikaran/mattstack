@@ -29,9 +29,7 @@ class TestHasFrontend:
     def test_has_frontend_when_test_script_exists(self, tmp_path: Path) -> None:
         frontend = tmp_path / "frontend"
         frontend.mkdir()
-        (frontend / "package.json").write_text(
-            json.dumps({"scripts": {"test": "vitest run"}})
-        )
+        (frontend / "package.json").write_text(json.dumps({"scripts": {"test": "vitest run"}}))
         assert _has_frontend(tmp_path) is True
 
     def test_has_frontend_when_test_coverage_script_exists(self, tmp_path: Path) -> None:
@@ -45,9 +43,7 @@ class TestHasFrontend:
     def test_no_frontend_when_no_test_script(self, tmp_path: Path) -> None:
         frontend = tmp_path / "frontend"
         frontend.mkdir()
-        (frontend / "package.json").write_text(
-            json.dumps({"scripts": {"dev": "vite"}})
-        )
+        (frontend / "package.json").write_text(json.dumps({"scripts": {"dev": "vite"}}))
         assert _has_frontend(tmp_path) is False
 
     def test_no_frontend_when_no_package_json(self, tmp_path: Path) -> None:
@@ -63,9 +59,7 @@ class TestRunTest:
     def test_backend_only_with_no_backend_exits_1(self, tmp_path: Path) -> None:
         frontend = tmp_path / "frontend"
         frontend.mkdir()
-        (frontend / "package.json").write_text(
-            json.dumps({"scripts": {"test": "vitest run"}})
-        )
+        (frontend / "package.json").write_text(json.dumps({"scripts": {"test": "vitest run"}}))
         with pytest.raises(typer.Exit) as exc_info:
             run_test(tmp_path, backend_only=True)
         assert exc_info.value.exit_code == 1
@@ -111,7 +105,9 @@ class TestRunTest:
         mock_proc.returncode = 0
         mock_proc.wait.return_value = None
 
-        with patch("mattstack.commands.test.subprocess.Popen", return_value=mock_proc) as mock_popen:
+        with patch(
+            "mattstack.commands.test.subprocess.Popen", return_value=mock_proc
+        ) as mock_popen:
             run_test(tmp_path, parallel=True)
 
         assert mock_popen.call_count == 2

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -20,6 +21,7 @@ context_app = typer.Typer(
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
+
 def _detect_components(path: Path) -> dict[str, bool]:
     return {
         "backend": (path / "backend" / "pyproject.toml").exists(),
@@ -31,11 +33,11 @@ def _detect_components(path: Path) -> dict[str, bool]:
     }
 
 
-def _detect_backend_stack(path: Path) -> dict:
+def _detect_backend_stack(path: Path) -> dict[str, Any]:
     backend_dir = path / "backend"
     if not (backend_dir / "pyproject.toml").exists():
         return {}
-    info: dict = {"language": "python", "package_manager": "uv"}
+    info: dict[str, Any] = {"language": "python", "package_manager": "uv"}
     content = (backend_dir / "pyproject.toml").read_text(encoding="utf-8")
     if "django" in content.lower():
         info["framework"] = "django"
@@ -46,7 +48,7 @@ def _detect_backend_stack(path: Path) -> dict:
     return info
 
 
-def _detect_frontend_stack(path: Path) -> dict:
+def _detect_frontend_stack(path: Path) -> dict[str, Any]:
     pkg_json = path / "frontend" / "package.json"
     if not pkg_json.exists():
         return {}
@@ -56,7 +58,7 @@ def _detect_frontend_stack(path: Path) -> dict:
         return {}
     deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
     pm = detect_package_manager(path)
-    info: dict = {"language": "typescript", "package_manager": pm.value}
+    info: dict[str, Any] = {"language": "typescript", "package_manager": pm.value}
     if "next" in deps:
         info["framework"] = "next.js"
     elif "vite" in deps:
@@ -103,7 +105,7 @@ def _tool_versions() -> dict[str, str | None]:
         if command_available(tool):
             ver = get_command_version(tool)
             versions[tool] = ver.split("\n")[0] if ver else "installed"
-    return versions
+    return versions  # type: ignore[return-value]
 
 
 def estimate_tokens(text: str) -> int:
@@ -113,9 +115,10 @@ def estimate_tokens(text: str) -> int:
 
 # ── stack context (original behaviour) ───────────────────────────────────────
 
-def build_stack_context(path: Path) -> dict:
+
+def build_stack_context(path: Path) -> dict[str, Any]:
     components = _detect_components(path)
-    ctx: dict = {
+    ctx: dict[str, Any] = {
         "project_name": path.name,
         "project_path": str(path.resolve()),
         "components": components,
@@ -140,7 +143,8 @@ build_context = build_stack_context
 
 # ── models context ────────────────────────────────────────────────────────────
 
-def build_models_context(path: Path) -> dict:
+
+def build_models_context(path: Path) -> dict[str, Any]:
     from mattstack.parsers.django_models import find_model_files, parse_models_file
 
     model_files = find_model_files(path)
@@ -148,10 +152,7 @@ def build_models_context(path: Path) -> dict:
     for mf in model_files:
         try:
             for m in parse_models_file(mf):
-                fields_out = [
-                    {"name": f.name, "type": f.field_type, **f.kwargs}
-                    for f in m.fields
-                ]
+                fields_out = [{"name": f.name, "type": f.field_type, **f.kwargs} for f in m.fields]
                 models_out.append(
                     {
                         "name": m.name,
@@ -168,7 +169,8 @@ def build_models_context(path: Path) -> dict:
 
 # ── routes context ────────────────────────────────────────────────────────────
 
-def build_routes_context(path: Path) -> dict:
+
+def build_routes_context(path: Path) -> dict[str, Any]:
     from mattstack.parsers.django_routes import find_controller_files, parse_controller_file
 
     controller_files = find_controller_files(path)
@@ -202,7 +204,8 @@ def build_routes_context(path: Path) -> dict:
 
 # ── types context ─────────────────────────────────────────────────────────────
 
-def build_types_context(path: Path) -> dict:
+
+def build_types_context(path: Path) -> dict[str, Any]:
     from mattstack.parsers.typescript_types import find_typescript_type_files, parse_typescript_file
     from mattstack.parsers.zod_schemas import find_zod_files, parse_zod_file
 
@@ -250,7 +253,8 @@ def build_types_context(path: Path) -> dict:
 
 # ── full context ──────────────────────────────────────────────────────────────
 
-def build_full_context(path: Path) -> dict:
+
+def build_full_context(path: Path) -> dict[str, Any]:
     ctx = build_stack_context(path)
     ctx.update(build_models_context(path))
     ctx.update(build_routes_context(path))
@@ -260,7 +264,8 @@ def build_full_context(path: Path) -> dict:
 
 # ── formatters ────────────────────────────────────────────────────────────────
 
-def format_context_markdown(ctx: dict) -> str:
+
+def format_context_markdown(ctx: dict[str, Any]) -> str:
     lines = [f"# Project: {ctx.get('project_name', 'unknown')}", ""]
     comps = ctx.get("components", {})
     active = [k for k, v in comps.items() if v]
@@ -294,9 +299,7 @@ def format_context_markdown(ctx: dict) -> str:
             field_names = ", ".join(f["name"] for f in m.get("fields", []))
             inherits = m["inherits"]
             flds = field_names or "none"
-            lines.append(
-                f"- **{m['name']}** ({m['app']}) inherits `{inherits}` — fields: {flds}"
-            )
+            lines.append(f"- **{m['name']}** ({m['app']}) inherits `{inherits}` — fields: {flds}")
         lines.append("")
     if "routes" in ctx and ctx["routes"]:
         lines.append("## API Routes")
@@ -316,7 +319,7 @@ def format_context_markdown(ctx: dict) -> str:
     return "\n".join(lines)
 
 
-def format_context_claude(ctx: dict) -> str:
+def format_context_claude(ctx: dict[str, Any]) -> str:
     """Wrap context in Claude XML blocks."""
     parts = ["<context>"]
     if "project_name" in ctx:
@@ -332,55 +335,53 @@ def format_context_claude(ctx: dict) -> str:
         parts.append("  <models>")
         for m in ctx["models"]:
             parts.append(
-                f"    <model name=\"{m['name']}\" app=\"{m['app']}\" inherits=\"{m['inherits']}\">"
+                f'    <model name="{m["name"]}" app="{m["app"]}" inherits="{m["inherits"]}">'
             )
             for f in m.get("fields", []):
-                kwargs = " ".join(
-                    f'{k}="{v}"' for k, v in f.items() if k not in ("name", "type")
-                )
-                parts.append(f"      <field name=\"{f['name']}\" type=\"{f['type']}\" {kwargs}/>")
+                kwargs = " ".join(f'{k}="{v}"' for k, v in f.items() if k not in ("name", "type"))
+                parts.append(f'      <field name="{f["name"]}" type="{f["type"]}" {kwargs}/>')
             parts.append("    </model>")
         parts.append("  </models>")
     if "routes" in ctx and ctx["routes"]:
         parts.append("  <routes>")
         for c in ctx["routes"]:
-            tag_attr = f" tag=\"{c['tag']}\"" if c["tag"] else ""
+            tag_attr = f' tag="{c["tag"]}"' if c["tag"] else ""
             ctrl = c["controller"]
             pfx = c["prefix"]
             parts.append(f'    <controller name="{ctrl}" prefix="{pfx}"{tag_attr}>')
             for ep in c.get("endpoints", []):
-                auth_attr = " auth=\"true\"" if ep["auth"] else ""
-                resp_attr = f" response=\"{ep['response']}\"" if ep["response"] else ""
+                auth_attr = ' auth="true"' if ep["auth"] else ""
+                resp_attr = f' response="{ep["response"]}"' if ep["response"] else ""
                 parts.append(
-                    f"      <endpoint method=\"{ep['method']}\" path=\"{ep['path']}\""
-                    f" handler=\"{ep['handler']}\"{resp_attr}{auth_attr}/>"
+                    f'      <endpoint method="{ep["method"]}" path="{ep["path"]}"'
+                    f' handler="{ep["handler"]}"{resp_attr}{auth_attr}/>'
                 )
             parts.append("    </controller>")
         parts.append("  </routes>")
     if "interfaces" in ctx and ctx["interfaces"]:
         parts.append("  <types>")
         for iface in ctx["interfaces"]:
-            ext = f" extends=\"{iface['extends']}\"" if iface["extends"] else ""
-            parts.append(f"    <interface name=\"{iface['name']}\"{ext}>")
+            ext = f' extends="{iface["extends"]}"' if iface["extends"] else ""
+            parts.append(f'    <interface name="{iface["name"]}"{ext}>')
             for f in iface.get("fields", []):
-                opt = " optional=\"true\"" if f["optional"] else ""
-                parts.append(f"      <field name=\"{f['name']}\" type=\"{f['type']}\"{opt}/>")
+                opt = ' optional="true"' if f["optional"] else ""
+                parts.append(f'      <field name="{f["name"]}" type="{f["type"]}"{opt}/>')
             parts.append("    </interface>")
         parts.append("  </types>")
     if "zod_schemas" in ctx and ctx["zod_schemas"]:
         parts.append("  <zod_schemas>")
         for schema in ctx["zod_schemas"]:
-            parts.append(f"    <schema name=\"{schema['name']}\">")
+            parts.append(f'    <schema name="{schema["name"]}">')
             for f in schema.get("fields", []):
-                opt = " optional=\"true\"" if f["optional"] else ""
-                parts.append(f"      <field name=\"{f['name']}\" type=\"{f['type']}\"{opt}/>")
+                opt = ' optional="true"' if f["optional"] else ""
+                parts.append(f'      <field name="{f["name"]}" type="{f["type"]}"{opt}/>')
             parts.append("    </schema>")
         parts.append("  </zod_schemas>")
     parts.append("</context>")
     return "\n".join(parts)
 
 
-def _apply_format(ctx: dict, fmt: str, include_token_count: bool = True) -> str:
+def _apply_format(ctx: dict[str, Any], fmt: str, include_token_count: bool = True) -> str:
     if fmt == "json":
         if include_token_count:
             text = json.dumps(ctx, indent=2)
@@ -397,7 +398,7 @@ def _apply_format(ctx: dict, fmt: str, include_token_count: bool = True) -> str:
     return text
 
 
-def _truncate_to_tokens(ctx: dict, max_tokens: int, fmt: str) -> dict:
+def _truncate_to_tokens(ctx: dict[str, Any], max_tokens: int, fmt: str) -> dict[str, Any]:
     """Naively trim lists in ctx until estimated token count fits."""
     text = _apply_format(ctx, fmt, include_token_count=False)
     if estimate_tokens(text) <= max_tokens:
@@ -415,6 +416,7 @@ def _output(text: str, output_file: str | None) -> None:
         out = Path(output_file)
         out.write_text(text, encoding="utf-8")
         from mattstack.utils.console import print_success
+
         print_success(f"Context written to {out}")
     else:
         console.print(text)
@@ -422,7 +424,10 @@ def _output(text: str, output_file: str | None) -> None:
 
 # ── watch helper ──────────────────────────────────────────────────────────────
 
-def _watch_loop(path: Path, builder, fmt: str, max_tokens: int | None) -> None:
+
+def _watch_loop(
+    path: Path, builder: Callable[[Path], dict[str, Any]], fmt: str, max_tokens: int | None
+) -> None:
     """Poll for file changes and re-emit context."""
     import contextlib
     import os
@@ -439,6 +444,7 @@ def _watch_loop(path: Path, builder, fmt: str, max_tokens: int | None) -> None:
 
     def _emit() -> None:
         import datetime
+
         console.print(f"\n[dim]── {datetime.datetime.now().strftime('%H:%M:%S')} ──[/dim]")
         ctx = builder(path)
         if max_tokens:
@@ -469,6 +475,7 @@ _WATCH_HELP = "Re-emit context on file changes (poll mode)"
 
 
 # ── subcommands ───────────────────────────────────────────────────────────────
+
 
 @context_app.command("stack")
 def cmd_stack(
@@ -551,6 +558,7 @@ def cmd_full(
 
 # ── legacy run_context kept for backward compat ───────────────────────────────
 
+
 def run_context(
     path: Path,
     json_output: bool = False,
@@ -559,6 +567,7 @@ def run_context(
     """Legacy entry point: dump project context (stack only)."""
     if not path.is_dir():
         from mattstack.utils.console import print_error
+
         print_error(f"Directory not found: {path}")
         raise typer.Exit(code=1)
     fmt = "json" if json_output else "markdown"

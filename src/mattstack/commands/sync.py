@@ -218,7 +218,7 @@ def _infer_response_type(route: Route) -> str | None:
     # list_users → User, get_user → User, create_user → User
     for prefix in ("list_", "get_", "create_", "update_", "delete_", "patch_"):
         if name.startswith(prefix):
-            resource = name[len(prefix):]
+            resource = name[len(prefix) :]
             # Singularize: remove trailing 's' for list endpoints
             if prefix == "list_" and resource.endswith("s"):
                 resource = resource[:-1]
@@ -279,7 +279,7 @@ def _route_to_hooks(route: Route, known_types: set[str]) -> list[str]:
 
         # Paginated variant for list endpoints (only when type is known)
         if is_list and response_type and response_type in known_types:
-            resource_snake = func_name[len("list_"):]  # e.g. "products"
+            resource_snake = func_name[len("list_") :]  # e.g. "products"
             paginated_name = f"use{response_type}List"
             base_path = path.rstrip("/")
             paginated_path = f"{base_path}/?page=${{page}}&page_size=${{pageSize}}"
@@ -287,7 +287,8 @@ def _route_to_hooks(route: Route, known_types: set[str]) -> list[str]:
                 f"export function {paginated_name}(page: number = 1, pageSize: number = 20) {{",
                 "  return useQuery({",
                 f"    queryKey: ['{resource_snake}', page, pageSize],",
-                f"    queryFn: () => apiClient.get{type_annotation}(`{paginated_path}`).then(r => r.data),",
+                f"    queryFn: () => apiClient.get{type_annotation}("
+                f"`{paginated_path}`).then(r => r.data),  # noqa: E501"
                 "    placeholderData: keepPreviousData,",
                 "  })",
                 "}",

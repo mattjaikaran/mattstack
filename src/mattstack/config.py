@@ -4,29 +4,29 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 
-class ProjectType(str, Enum):
+class ProjectType(StrEnum):
     FULLSTACK = "fullstack"
     BACKEND_ONLY = "backend-only"
     FRONTEND_ONLY = "frontend-only"
 
 
-class Variant(str, Enum):
+class Variant(StrEnum):
     STARTER = "starter"
     B2B = "b2b"
 
 
-class BackendFramework(str, Enum):
+class BackendFramework(StrEnum):
     DJANGO_NINJA = "django-ninja"
     DJANGO_MATT = "django-matt"
     FASTAPI = "fastapi"
     NESTJS = "nestjs"
 
 
-class FrontendFramework(str, Enum):
+class FrontendFramework(StrEnum):
     REACT_VITE = "react-vite"
     REACT_VITE_STARTER = "react-vite-starter"
     REACT_RSBUILD = "react-rsbuild"
@@ -34,7 +34,7 @@ class FrontendFramework(str, Enum):
     NEXTJS = "nextjs"
 
 
-class DeploymentTarget(str, Enum):
+class DeploymentTarget(StrEnum):
     DOCKER = "docker"
     RAILWAY = "railway"
     RENDER = "render"
@@ -72,7 +72,7 @@ def get_repo_urls() -> dict[str, str]:
     from mattstack.user_config import get_user_repos
 
     urls = dict(REPO_URLS)
-    urls.update(get_user_repos())
+    urls.update(get_user_repos())  # type: ignore[arg-type]
     return urls
 
 
@@ -184,11 +184,14 @@ class ProjectConfig:
 
     @property
     def is_django_backend(self) -> bool:
-        return self.backend_framework in (BackendFramework.DJANGO_NINJA, BackendFramework.DJANGO_MATT)
+        return self.backend_framework in (
+            BackendFramework.DJANGO_NINJA,
+            BackendFramework.DJANGO_MATT,
+        )
 
     @property
     def backend_api_port(self) -> int:
-        """Port the backend API runs on. NestJS uses 4000 in monorepo to avoid frontend conflicts."""
+        """Backend API port. NestJS uses 4000 in monorepo to avoid conflicts."""
         return 4000 if self.is_nestjs_backend else 8000
 
     @property

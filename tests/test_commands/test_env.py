@@ -31,7 +31,7 @@ class TestParseEnvFile:
 
     def test_strips_quotes(self, tmp_path: Path) -> None:
         env_file = tmp_path / ".env"
-        env_file.write_text('FOO="bar"\nBAZ=\'qux\'\n')
+        env_file.write_text("FOO=\"bar\"\nBAZ='qux'\n")
         assert _parse_env_file(env_file) == {"FOO": "bar", "BAZ": "qux"}
 
     def test_empty_values(self, tmp_path: Path) -> None:
@@ -80,9 +80,7 @@ class TestFindEnvPairs:
         backend.mkdir()
         (backend / ".env.example").write_text("FOO=bar\n")
         pairs = _find_env_pairs(tmp_path)
-        assert any(
-            ".env.example" in str(p[0]) and "backend" in str(p[0]) for p in pairs
-        )
+        assert any(".env.example" in str(p[0]) and "backend" in str(p[0]) for p in pairs)
 
     def test_empty_when_no_examples(self, tmp_path: Path) -> None:
         assert _find_env_pairs(tmp_path) == []

@@ -169,8 +169,7 @@ class TypeSafetyAuditor(BaseAuditor):
                     ts.line,
                     f"TS interface '{ts.name}' missing field '{expected_name}' "
                     f"(from Python '{pf.name}')",
-                    f"Add '{expected_name}: {self._py_to_frontend_type(pf.type_str)}' "
-                    f"to {ts.name}",
+                    f"Add '{expected_name}: {self._py_to_frontend_type(pf.type_str)}' to {ts.name}",
                 )
                 continue
 

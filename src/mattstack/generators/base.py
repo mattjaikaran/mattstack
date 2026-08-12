@@ -116,7 +116,7 @@ class BaseGenerator(ABC):
         content = re.sub(pattern, replacement, content)
         file_path.write_text(content)
 
-    def update_json_file(self, file_path: Path, updates: dict) -> None:
+    def update_json_file(self, file_path: Path, updates: dict[str, object]) -> None:
         """Update fields in a JSON file (e.g., package.json)."""
         if not file_path.exists():
             print_error(f"File not found: {file_path}")
@@ -153,7 +153,7 @@ class BaseGenerator(ABC):
 
     @property
     @abstractmethod
-    def steps(self) -> list[tuple[str, Callable]]:
+    def steps(self) -> list[tuple[str, Callable[..., bool]]]:
         """Return list of (description, step_fn) tuples for the generator."""
 
     def run(self) -> bool:

@@ -18,11 +18,8 @@ from mattstack.commands.generate import (
     _generate_ts_api_client,
     _generate_vitest_component_test,
     _parse_fields,
-    _to_pascal,
-    _to_snake,
     _update_init_import,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -86,9 +83,10 @@ def test_controller_uses_model_dump_not_dict() -> None:
 def test_model_command_no_fields_no_empty_exits(tmp_path: Path) -> None:
     _make_backend(tmp_path)
 
-    from mattstack.commands.generate import model as model_cmd
-    from typer.testing import CliRunner
     import typer
+    from typer.testing import CliRunner
+
+    from mattstack.commands.generate import model as model_cmd
 
     app = typer.Typer()
     app.command()(model_cmd)
@@ -106,9 +104,10 @@ def test_model_command_no_fields_no_empty_exits(tmp_path: Path) -> None:
 def test_fk_missing_target_exits(tmp_path: Path) -> None:
     _make_backend(tmp_path)
 
-    from mattstack.commands.generate import model as model_cmd
-    from typer.testing import CliRunner
     import typer
+    from typer.testing import CliRunner
+
+    from mattstack.commands.generate import model as model_cmd
 
     app = typer.Typer()
     app.command()(model_cmd)
@@ -178,7 +177,9 @@ def test_admin_init_wiring(tmp_path: Path) -> None:
     admin_init.parent.mkdir(parents=True)
     admin_init.write_text("")
 
-    added = _update_init_import(admin_init, "from .product_admin import ProductAdmin", dry_run=False)
+    added = _update_init_import(
+        admin_init, "from .product_admin import ProductAdmin", dry_run=False
+    )
 
     assert added is True
     assert "from .product_admin import ProductAdmin" in admin_init.read_text()
@@ -350,8 +351,9 @@ def test_vitest_component_test_checks_empty_state() -> None:
 def test_crud_command_requires_fields(tmp_path: Path) -> None:
     _make_backend(tmp_path)
 
-    from mattstack.commands.generate import crud as crud_cmd
     from typer.testing import CliRunner
+
+    from mattstack.commands.generate import crud as crud_cmd
 
     app = typer.Typer()
     app.command()(crud_cmd)
@@ -364,8 +366,9 @@ def test_crud_command_requires_fields(tmp_path: Path) -> None:
 def test_crud_command_dry_run_no_files_created(tmp_path: Path) -> None:
     _make_backend(tmp_path)
 
-    from mattstack.commands.generate import crud as crud_cmd
     from typer.testing import CliRunner
+
+    from mattstack.commands.generate import crud as crud_cmd
 
     app = typer.Typer()
     app.command()(crud_cmd)
@@ -383,8 +386,9 @@ def test_crud_command_creates_backend_files(tmp_path: Path) -> None:
     _make_backend(tmp_path)
     (tmp_path / "backend" / "apps" / "core" / "models").mkdir(parents=True, exist_ok=True)
 
-    from mattstack.commands.generate import crud as crud_cmd
     from typer.testing import CliRunner
+
+    from mattstack.commands.generate import crud as crud_cmd
 
     app = typer.Typer()
     app.command()(crud_cmd)
@@ -406,8 +410,9 @@ def test_crud_command_creates_backend_files(tmp_path: Path) -> None:
 def test_crud_command_with_tests_creates_test_file(tmp_path: Path) -> None:
     _make_backend(tmp_path)
 
-    from mattstack.commands.generate import crud as crud_cmd
     from typer.testing import CliRunner
+
+    from mattstack.commands.generate import crud as crud_cmd
 
     app = typer.Typer()
     app.command()(crud_cmd)
@@ -434,8 +439,9 @@ def test_model_command_creates_admin_file(tmp_path: Path) -> None:
     _make_backend(tmp_path)
     (tmp_path / "backend" / "apps" / "core" / "models").mkdir(parents=True, exist_ok=True)
 
-    from mattstack.commands.generate import model as model_cmd
     from typer.testing import CliRunner
+
+    from mattstack.commands.generate import model as model_cmd
 
     app = typer.Typer()
     app.command()(model_cmd)
@@ -458,8 +464,9 @@ def test_model_command_updates_models_init(tmp_path: Path) -> None:
     _make_backend(tmp_path)
     (tmp_path / "backend" / "apps" / "core" / "models").mkdir(parents=True, exist_ok=True)
 
-    from mattstack.commands.generate import model as model_cmd
     from typer.testing import CliRunner
+
+    from mattstack.commands.generate import model as model_cmd
 
     app = typer.Typer()
     app.command()(model_cmd)
@@ -480,8 +487,9 @@ def test_model_command_updates_admin_init(tmp_path: Path) -> None:
     _make_backend(tmp_path)
     (tmp_path / "backend" / "apps" / "core" / "models").mkdir(parents=True, exist_ok=True)
 
-    from mattstack.commands.generate import model as model_cmd
     from typer.testing import CliRunner
+
+    from mattstack.commands.generate import model as model_cmd
 
     app = typer.Typer()
     app.command()(model_cmd)
@@ -509,8 +517,9 @@ def test_crud_output_python_files_parse_without_syntax_errors(tmp_path: Path) ->
     _make_backend(tmp_path)
     (tmp_path / "backend" / "apps" / "core" / "models").mkdir(parents=True, exist_ok=True)
 
-    from mattstack.commands.generate import crud as crud_cmd
     from typer.testing import CliRunner
+
+    from mattstack.commands.generate import crud as crud_cmd
 
     app = typer.Typer()
     app.command()(crud_cmd)
@@ -544,8 +553,9 @@ def test_crud_output_ts_files_are_non_empty(tmp_path: Path) -> None:
     frontend = tmp_path / "frontend" / "src"
     frontend.mkdir(parents=True)
 
-    from mattstack.commands.generate import crud as crud_cmd
     from typer.testing import CliRunner
+
+    from mattstack.commands.generate import crud as crud_cmd
 
     app = typer.Typer()
     app.command()(crud_cmd)
@@ -580,8 +590,9 @@ def test_crud_creates_controller_with_model_dump_not_dict(tmp_path: Path) -> Non
     """Regression: generated controller must use .model_dump() not .dict()."""
     _make_backend(tmp_path)
 
-    from mattstack.commands.generate import crud as crud_cmd
     from typer.testing import CliRunner
+
+    from mattstack.commands.generate import crud as crud_cmd
 
     app = typer.Typer()
     app.command()(crud_cmd)

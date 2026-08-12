@@ -222,9 +222,7 @@ def test_model_command_generates_django_matt_files(tmp_path: Path) -> None:
     # Set up a fake project with django-matt in pyproject
     backend = tmp_path / "backend"
     (backend / "apps" / "core" / "models").mkdir(parents=True)
-    (backend / "pyproject.toml").write_text(
-        '[project]\ndependencies = ["django-matt>=0.9.0"]\n'
-    )
+    (backend / "pyproject.toml").write_text('[project]\ndependencies = ["django-matt>=0.9.0"]\n')
 
     runner = CliRunner()
     result = runner.invoke(
@@ -289,7 +287,8 @@ def test_auditor_recognizes_django_matt_controllers(tmp_path: Path) -> None:
     findings = auditor.run()
     # Should NOT raise — list (GET) without auth is fine, POST has auth
     auth_warnings = [
-        f for f in findings
+        f
+        for f in findings
         if "No auth on write endpoint" in f.message and "products" in f.message.lower()
     ]
     assert len(auth_warnings) == 0

@@ -201,7 +201,7 @@ def reset(
     ] = None,
 ) -> None:
     """Reset database (dev only). Flushes all data and re-migrates."""
-    import questionary
+    import questionary  # type: ignore[import-not-found]
 
     backend = _resolve_backend(path or Path.cwd())
 

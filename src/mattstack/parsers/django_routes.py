@@ -126,7 +126,7 @@ def find_route_files(project_path: Path) -> list[Path]:
 
 @dataclass
 class ControllerEndpoint:
-    method: str        # GET POST PUT DELETE PATCH
+    method: str  # GET POST PUT DELETE PATCH
     path: str
     handler: str
     response: str | None
@@ -184,7 +184,7 @@ def parse_controller_file(path: Path) -> list[Controller]:
         # Determine class body end (next top-level class or EOF)
         next_class = CONTROLLER_CLASS_RE.search(text, class_match.end())
         body_end = next_class.start() if next_class else len(text)
-        class_body = text[class_match.end():body_end]
+        class_body = text[class_match.end() : body_end]
 
         endpoints: list[ControllerEndpoint] = []
         for ep_match in HTTP_METHOD_FULL_RE.finditer(class_body):
@@ -195,7 +195,7 @@ def parse_controller_file(path: Path) -> list[Controller]:
             has_auth = bool(auth_val and auth_val.lower() not in ("none", "false"))
 
             # Find handler name (next def after this decorator — may be indented)
-            remaining = class_body[ep_match.end():]
+            remaining = class_body[ep_match.end() :]
             _indented_def_re = re.compile(r"def\s+(\w+)\s*\(")
             handler_match = _indented_def_re.search(remaining)
             handler = handler_match.group(1) if handler_match else "unknown"
@@ -240,7 +240,7 @@ def find_controller_files(project_path: Path) -> list[Path]:
 
 @dataclass
 class DjangoMattEndpoint:
-    method: str        # GET POST PUT DELETE PATCH
+    method: str  # GET POST PUT DELETE PATCH
     path: str
     handler: str
     auth: bool
@@ -266,7 +266,7 @@ MATT_CONTROLLER_CLASS_RE = re.compile(
 MATT_PREFIX_RE = re.compile(r'^\s+prefix\s*=\s*[\'"]([^\'"]+)[\'"]', re.MULTILINE)
 
 # tags = ["Products"]  or  tags = ['Products']
-MATT_TAGS_RE = re.compile(r'^\s+tags\s*=\s*\[([^\]]+)\]', re.MULTILINE)
+MATT_TAGS_RE = re.compile(r"^\s+tags\s*=\s*\[([^\]]+)\]", re.MULTILINE)
 
 # @get("/path")  @post("/path")  etc. — plain decorators (not @router.get)
 MATT_METHOD_RE = re.compile(
@@ -291,7 +291,7 @@ def parse_django_matt_controller_file(path: Path) -> list[DjangoMattController]:
         # Determine class body (until next top-level class or EOF)
         next_class = MATT_CONTROLLER_CLASS_RE.search(text, class_match.end())
         body_end = next_class.start() if next_class else len(text)
-        class_body = text[class_match.end():body_end]
+        class_body = text[class_match.end() : body_end]
 
         prefix_match = MATT_PREFIX_RE.search(class_body)
         prefix = prefix_match.group(1) if prefix_match else f"/{class_name.lower()}s"
@@ -309,7 +309,7 @@ def parse_django_matt_controller_file(path: Path) -> list[DjangoMattController]:
             auth_val = ep_match.group(3) if ep_match.lastindex and ep_match.lastindex >= 3 else None
             has_auth = bool(auth_val and auth_val.lower() not in ("none", "false"))
 
-            remaining = class_body[ep_match.end():]
+            remaining = class_body[ep_match.end() :]
             handler_match = _INDENTED_DEF_RE.search(remaining)
             handler = handler_match.group(1) if handler_match else "unknown"
 

@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from mattstack.config import ProjectConfig
 
 
 def generate_railway_json(config: ProjectConfig) -> str:
     """Generate railway.json with build and deploy config."""
-    deploy: dict = {
+    deploy: dict[str, Any] = {
         "$schema": "https://railway.app/railway.schema.json",
         "build": {},
         "deploy": {},

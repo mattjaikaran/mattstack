@@ -79,11 +79,12 @@ def run_doctor() -> None:
 
     # Security tools
     pip_audit_available = command_available("pip-audit")
+    version_output = get_command_version("pip-audit")
     table.add_row(
         "pip-audit",
         _status(pip_audit_available) if pip_audit_available else "[yellow]OPTIONAL[/yellow]",
-        get_command_version("pip-audit").split("\n")[0]
-        if pip_audit_available
+        version_output.split("\n")[0]
+        if pip_audit_available and version_output
         else "not installed — install: uv tool install pip-audit",
     )
 

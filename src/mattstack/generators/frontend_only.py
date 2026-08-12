@@ -19,7 +19,7 @@ class FrontendOnlyGenerator(BaseGenerator):
     """Generate a frontend-only project."""
 
     @property
-    def steps(self) -> list[tuple[str, Callable]]:
+    def steps(self) -> list[tuple[str, Callable[[], bool]]]:
         return [
             ("Creating project directory", self._step_create_dir),
             ("Cloning frontend", self._step_clone_frontend),

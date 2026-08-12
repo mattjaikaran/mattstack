@@ -17,7 +17,7 @@ def check_pypi_version(package: str = "mattstack") -> str | None:
         req = urllib.request.Request(url, headers={"Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=3) as resp:
             data = json.loads(resp.read().decode())
-            return data.get("info", {}).get("version")
+            return str(data.get("info", {}).get("version"))
     except (urllib.error.URLError, json.JSONDecodeError, OSError, KeyError, TimeoutError):
         return None
 

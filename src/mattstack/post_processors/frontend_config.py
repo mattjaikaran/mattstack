@@ -13,7 +13,10 @@ def setup_frontend_monorepo(config: ProjectConfig) -> None:
 
     if config.is_nextjs:
         _setup_nextjs_monorepo(config)
-    elif config.frontend_framework in (FrontendFramework.REACT_RSBUILD, FrontendFramework.REACT_RSBUILD_KIBO):
+    elif config.frontend_framework in (
+        FrontendFramework.REACT_RSBUILD,
+        FrontendFramework.REACT_RSBUILD_KIBO,
+    ):
         _setup_rsbuild_monorepo(config)
     else:
         _setup_vite_monorepo(config)

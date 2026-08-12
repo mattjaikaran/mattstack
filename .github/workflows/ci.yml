@@ -1,12 +1,10 @@
 name: CI
 
-# Disabled temporarily — re-enable when CI environment is fixed
-# on:
-#   push:
-#     branches: [main]
-#   pull_request:
-#     branches: [main]
-on: workflow_dispatch
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   test:
@@ -21,10 +19,20 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync --dev
-      - name: Lint
-        run: uv run ruff check src/ tests/
+        run: uv sync --extra dev
       - name: Format check
         run: uv run ruff format --check src/ tests/
+      - name: Lint
+        run: uv run ruff check src/ tests/
+      - name: Typecheck
+        run: uv run mypy src/
+      - name: Security scan
+        run: uv run bandit -r src/ -c pyproject.toml
+      - name: Architecture check
+        run: python scripts/check_architecture.py
+      - name: File length check
+        run: python scripts/check_file_length.py
       - name: Test
         run: uv run pytest -x -q --tb=short
+      - name: Install check
+        run: uv pip install -e .

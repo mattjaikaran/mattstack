@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     ERROR = "error"
     WARNING = "warning"
     INFO = "info"
 
 
-class AuditType(str, Enum):
+class AuditType(StrEnum):
     TYPES = "types"
     QUALITY = "quality"
     ENDPOINTS = "endpoints"
@@ -32,7 +32,7 @@ class AuditFinding:
     message: str
     suggestion: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return {
             "category": self.category.value,
             "severity": self.severity.value,
@@ -136,7 +136,7 @@ class AuditReport:
     def info_count(self) -> int:
         return sum(1 for f in self.findings if f.severity == Severity.INFO)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return {
             "auditors_run": self.auditors_run,
             "summary": {

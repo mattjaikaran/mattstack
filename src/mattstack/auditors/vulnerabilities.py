@@ -6,6 +6,7 @@ import json
 import re
 import subprocess
 from pathlib import Path
+from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -192,7 +193,7 @@ class VulnerabilityAuditor(BaseAuditor):
         return Severity.INFO
 
     @staticmethod
-    def _osv_severity(vuln: dict) -> Severity:
+    def _osv_severity(vuln: dict[str, Any]) -> Severity:
         """Map OSV vulnerability to severity based on CVSS or severity field."""
         severity_list = vuln.get("severity", [])
         for sev in severity_list:

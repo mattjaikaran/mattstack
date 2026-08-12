@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 USER_CONFIG_DIR = Path.home() / ".mattstack"
 USER_CONFIG_PATH = USER_CONFIG_DIR / "config.yaml"
@@ -36,7 +36,7 @@ TEMPLATE_CONFIG = """\
 """
 
 
-def load_user_config() -> dict:
+def load_user_config() -> dict[str, object]:
     """Load user config from ~/.mattstack/config.yaml. Returns empty dict if missing."""
     if not USER_CONFIG_PATH.is_file():
         return {}
@@ -47,21 +47,21 @@ def load_user_config() -> dict:
         return {}
 
 
-def get_user_repos() -> dict[str, str]:
+def get_user_repos() -> dict[str, object]:
     """Get custom repo URLs from user config."""
     config = load_user_config()
     repos = config.get("repos", {})
     return repos if isinstance(repos, dict) else {}
 
 
-def get_user_presets() -> dict:
+def get_user_presets() -> dict[str, object]:
     """Get custom presets from user config."""
     config = load_user_config()
     presets = config.get("presets", {})
     return presets if isinstance(presets, dict) else {}
 
 
-def get_user_defaults() -> dict:
+def get_user_defaults() -> dict[str, object]:
     """Get default settings from user config."""
     config = load_user_config()
     defaults = config.get("defaults", {})

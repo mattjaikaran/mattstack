@@ -53,3 +53,15 @@ select = ["E", "F", "I", "N", "UP", "B", "SIM"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+follow_imports = "normal"
+exclude = ["tests/", ".venv/"]
+
+[dependency-groups]
+dev = [
+    "bandit>=1.9.4",
+    "types-pyyaml>=6.0.12.20260724",
+]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import typer
 
@@ -26,7 +27,7 @@ from mattstack.utils.git import clone_repo, remove_git_history
 VALID_COMPONENTS = ("frontend", "backend", "ios")
 
 
-def _detect_project(path: Path) -> dict:
+def _detect_project(path: Path) -> dict[str, Any]:
     """Detect what components exist in a project directory."""
     return {
         "has_backend": (path / "backend" / "pyproject.toml").exists(),
@@ -38,7 +39,7 @@ def _detect_project(path: Path) -> dict:
 
 def _build_config(
     path: Path,
-    detected: dict,
+    detected: dict[str, Any],
     adding: str,
     framework: str | None,
 ) -> ProjectConfig:
@@ -187,10 +188,7 @@ def run_add(
     if framework:
         valid_frameworks = [f.value for f in FrontendFramework]
         if framework not in valid_frameworks:
-            print_error(
-                f"Invalid framework '{framework}'. "
-                f"Valid: {', '.join(valid_frameworks)}"
-            )
+            print_error(f"Invalid framework '{framework}'. Valid: {', '.join(valid_frameworks)}")
             raise typer.Exit(code=1)
 
     # Validate project path exists

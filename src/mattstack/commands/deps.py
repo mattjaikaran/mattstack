@@ -52,10 +52,7 @@ def _check_backend(path: Path) -> list[tuple[str, str, str]]:
     except json.JSONDecodeError:
         print_warning("Failed to parse backend outdated output")
         return []
-    return [
-        (p["name"], p.get("version", "?"), p.get("latest_version", "?"))
-        for p in packages
-    ]
+    return [(p["name"], p.get("version", "?"), p.get("latest_version", "?")) for p in packages]
 
 
 def _check_frontend(path: Path) -> list[tuple[str, str, str]]:
@@ -189,7 +186,10 @@ def update(
             results.append(("backend", False))
         else:
             sync_result = subprocess.run(
-                ["uv", "sync"], cwd=backend_dir, capture_output=True, text=True,
+                ["uv", "sync"],
+                cwd=backend_dir,
+                capture_output=True,
+                text=True,
             )
             ok = sync_result.returncode == 0
             if ok:
@@ -206,7 +206,10 @@ def update(
         if major:
             update_args.append("--latest")
         fe_result = subprocess.run(
-            update_args, cwd=frontend_dir, capture_output=True, text=True,
+            update_args,
+            cwd=frontend_dir,
+            capture_output=True,
+            text=True,
         )
         ok = fe_result.returncode == 0
         if ok:
@@ -272,12 +275,16 @@ def audit(
                 vulns = data.get("dependencies", [])
                 for dep in vulns:
                     for vuln in dep.get("vulns", []):
-                        findings.append((
-                            "backend",
-                            dep["name"],
-                            vuln.get("fix_versions", ["?"])[0] if vuln.get("fix_versions") else "?",
-                            vuln.get("id", "unknown"),
-                        ))
+                        findings.append(
+                            (
+                                "backend",
+                                dep["name"],
+                                vuln.get("fix_versions", ["?"])[0]
+                                if vuln.get("fix_versions")
+                                else "?",
+                                vuln.get("id", "unknown"),
+                            )
+                        )
             except json.JSONDecodeError:
                 # pip-audit may output non-json on some versions
                 if result.returncode != 0:
@@ -309,12 +316,16 @@ def audit(
                 try:
                     data = json.loads(result.stdout)
                     for name, advisory in data.get("vulnerabilities", {}).items():
-                        findings.append((
-                            "frontend",
-                            name,
-                            advisory.get("severity", "unknown"),
-                            advisory.get("via", [{}])[0].get("title", "") if isinstance(advisory.get("via", [{}])[0], dict) else str(advisory.get("via", [""])[0]),
-                        ))
+                        findings.append(
+                            (
+                                "frontend",
+                                name,
+                                advisory.get("severity", "unknown"),
+                                advisory.get("via", [{}])[0].get("title", "")
+                                if isinstance(advisory.get("via", [{}])[0], dict)
+                                else str(advisory.get("via", [""])[0]),
+                            )
+                        )
                 except json.JSONDecodeError:
                     pass
         elif result.stdout.strip():
@@ -324,7 +335,8 @@ def audit(
 
     if findings:
         table = create_table(
-            "Security Findings", ["Source", "Package", "Severity/Fix", "ID/Detail"],
+            "Security Findings",
+            ["Source", "Package", "Severity/Fix", "ID/Detail"],
         )
         for source, pkg, severity, detail in findings:
             table.add_row(source, pkg, f"[red]{severity}[/red]", detail)

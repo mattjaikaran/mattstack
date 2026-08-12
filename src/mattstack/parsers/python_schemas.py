@@ -131,8 +131,13 @@ def _parse_fields(body: str) -> list[PydanticField]:
         if default_val and "Field(" in default_val:
             for cm in CONSTRAINT_RE.finditer(default_val):
                 key, val = cm.group(1).strip(), cm.group(2).strip()
-                if key not in ("default", "default_factory",
-                               "alias", "serialization_alias", "validation_alias"):
+                if key not in (
+                    "default",
+                    "default_factory",
+                    "alias",
+                    "serialization_alias",
+                    "validation_alias",
+                ):
                     constraints[key] = val
 
             # Extract aliases

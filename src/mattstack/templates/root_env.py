@@ -53,7 +53,9 @@ def generate_env_example(config: ProjectConfig) -> str:
             )
 
         if config.use_redis:
-            redis_url = "redis://localhost:6379/0" if config.is_django_backend else "redis://localhost:6379"
+            redis_url = (
+                "redis://localhost:6379/0" if config.is_django_backend else "redis://localhost:6379"
+            )
             lines.extend(
                 [
                     "# Redis",

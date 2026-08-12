@@ -47,17 +47,13 @@ class TestHasFrontend:
     def test_has_frontend_when_dev_script_exists(self, tmp_path: Path) -> None:
         frontend = tmp_path / "frontend"
         frontend.mkdir()
-        (frontend / "package.json").write_text(
-            json.dumps({"scripts": {"dev": "vite"}})
-        )
+        (frontend / "package.json").write_text(json.dumps({"scripts": {"dev": "vite"}}))
         assert _has_frontend(tmp_path) is True
 
     def test_no_frontend_when_no_dev_script(self, tmp_path: Path) -> None:
         frontend = tmp_path / "frontend"
         frontend.mkdir()
-        (frontend / "package.json").write_text(
-            json.dumps({"scripts": {"build": "vite build"}})
-        )
+        (frontend / "package.json").write_text(json.dumps({"scripts": {"build": "vite build"}}))
         assert _has_frontend(tmp_path) is False
 
     def test_no_frontend_when_no_package_json(self, tmp_path: Path) -> None:

@@ -21,7 +21,7 @@ class DjangoModel:
     file: Path
     line: int
     inherits: str  # "AbstractBaseModel" or "models.Model" etc.
-    fields: list[ModelField] = field(default_factory=dict)
+    fields: list[ModelField] = field(default_factory=list)
 
 
 # class Product(AbstractBaseModel): or class Product(models.Model):

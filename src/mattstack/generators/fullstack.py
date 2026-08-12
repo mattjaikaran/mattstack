@@ -26,8 +26,8 @@ class FullstackGenerator(BaseGenerator):
     """Generate a fullstack monorepo: backend + frontend + optional iOS."""
 
     @property
-    def steps(self) -> list[tuple[str, Callable]]:
-        steps: list[tuple[str, Callable]] = [
+    def steps(self) -> list[tuple[str, Callable[[], bool]]]:
+        steps: list[tuple[str, Callable[[], bool]]] = [
             ("Creating project directory", self._step_create_dir),
             ("Cloning backend", self._step_clone_backend),
             ("Cloning frontend", self._step_clone_frontend),

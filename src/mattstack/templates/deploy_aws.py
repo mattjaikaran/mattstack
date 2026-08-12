@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from mattstack.config import ProjectConfig
 
@@ -10,7 +11,7 @@ from mattstack.config import ProjectConfig
 def generate_ecs_task_definition(config: ProjectConfig) -> str:
     """Generate ECS task definition JSON."""
     pkg = config.python_package_name
-    task_def = {
+    task_def: dict[str, Any] = {
         "family": f"{config.name}-task",
         "networkMode": "awsvpc",
         "requiresCompatibilities": ["FARGATE"],

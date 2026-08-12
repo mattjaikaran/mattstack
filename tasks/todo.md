@@ -1,3 +1,21 @@
+## Gauntlet Constraint Violations (2026-07-25)
+
+> Detected by 10-gate gauntlet (`make gauntlet`). 3 of 8 gates passed on first run.
+
+### Failing Gates
+- [ ] **FORMAT** — pre-existing ruff formatting violations. Run `make format` then `make gauntlet-gate GATE=format`
+- [ ] **LINT** — pre-existing ruff lint violations. Run `make lint-fix`
+- [ ] **TYPECHECK** — pre-existing mypy errors. Fix type annotations
+- [ ] **SECURITY** — bandit flagged issues. Run `make security-scan`
+- [ ] **FILELENGTH** — 5 files exceed 400-line limit. Split large files
+
+### Passing Gates
+- [x] ARCHITECTURE — no layer violations found
+- [x] Install check — package installs clean
+- [x] CI re-enabled — workflow now runs on push/PR
+
+---
+
 # mattstack TODO
 
 ## Phase 1: Foundation

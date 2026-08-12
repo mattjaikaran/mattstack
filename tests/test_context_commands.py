@@ -26,6 +26,7 @@ runner = CliRunner()
 
 # ── fixtures ──────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture()
 def model_file(tmp_path: Path) -> Path:
     f = tmp_path / "product.py"
@@ -100,6 +101,7 @@ def project_with_controllers(tmp_path: Path, controller_file: Path) -> Path:
 
 # ── django_models parser ──────────────────────────────────────────────────────
 
+
 def test_parse_models_inherits_abstract_base_model(model_file: Path) -> None:
     models = parse_models_file(model_file)
     names = {m.name for m in models}
@@ -143,14 +145,14 @@ def test_parse_models_app_from_path(tmp_path: Path) -> None:
     apps.mkdir(parents=True)
     f = apps / "product.py"
     f.write_text(
-        "from core.models.base import AbstractBaseModel\n"
-        "class X(AbstractBaseModel):\n    pass\n"
+        "from core.models.base import AbstractBaseModel\nclass X(AbstractBaseModel):\n    pass\n"
     )
     models = parse_models_file(f)
     assert models[0].app == "catalog"
 
 
 # ── django_routes controller parser ──────────────────────────────────────────
+
 
 def test_parse_controller_finds_controller(controller_file: Path) -> None:
     controllers = parse_controller_file(controller_file)
@@ -197,6 +199,7 @@ def test_parse_controller_handler_names(controller_file: Path) -> None:
 
 # ── build_models_context ──────────────────────────────────────────────────────
 
+
 def test_build_models_context_returns_models_key(project_with_models: Path) -> None:
     ctx = build_models_context(project_with_models)
     assert "models" in ctx
@@ -218,6 +221,7 @@ def test_build_models_context_json_serializable(project_with_models: Path) -> No
 
 # ── build_routes_context ──────────────────────────────────────────────────────
 
+
 def test_build_routes_context_returns_routes_key(project_with_controllers: Path) -> None:
     ctx = build_routes_context(project_with_controllers)
     assert "routes" in ctx
@@ -238,6 +242,7 @@ def test_build_routes_context_json_serializable(project_with_controllers: Path) 
 
 # ── build_types_context ───────────────────────────────────────────────────────
 
+
 def test_build_types_context_returns_keys(tmp_path: Path) -> None:
     ctx = build_types_context(tmp_path)
     assert "interfaces" in ctx
@@ -256,6 +261,7 @@ def test_build_types_context_finds_interfaces(tmp_path: Path) -> None:
 
 
 # ── formatters ────────────────────────────────────────────────────────────────
+
 
 def test_format_context_claude_wraps_in_context_tag() -> None:
     ctx = {"project_name": "myapp", "project_path": "/tmp/myapp", "components": {}}
@@ -290,8 +296,11 @@ def test_format_context_claude_includes_routes() -> None:
                 "tag": "Products",
                 "endpoints": [
                     {
-                        "method": "GET", "path": "/", "handler": "list_products",
-                        "response": None, "auth": False,
+                        "method": "GET",
+                        "path": "/",
+                        "handler": "list_products",
+                        "response": None,
+                        "auth": False,
                     }
                 ],
             }
@@ -326,8 +335,11 @@ def test_format_context_markdown_routes_section() -> None:
                 "tag": "Products",
                 "endpoints": [
                     {
-                        "method": "GET", "path": "/", "handler": "list_products",
-                        "response": None, "auth": False,
+                        "method": "GET",
+                        "path": "/",
+                        "handler": "list_products",
+                        "response": None,
+                        "auth": False,
                     }
                 ],
             }
@@ -339,6 +351,7 @@ def test_format_context_markdown_routes_section() -> None:
 
 
 # ── token estimate ────────────────────────────────────────────────────────────
+
 
 def test_estimate_tokens_rough_sanity() -> None:
     text = "a" * 400
@@ -356,6 +369,7 @@ def test_estimate_tokens_scales_with_length() -> None:
 
 
 # ── CLI integration ───────────────────────────────────────────────────────────
+
 
 def test_cli_context_stack_runs(tmp_path: Path) -> None:
     result = runner.invoke(app, ["context", "stack", str(tmp_path)])

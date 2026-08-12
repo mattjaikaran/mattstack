@@ -47,3 +47,24 @@ starter-fullstack, b2b-fullstack, starter-api, b2b-api, starter-frontend, simple
 
 ## Architecture
 See [docs/architecture.md](docs/architecture.md) for file map, patterns, and extension workflows.
+
+## Gauntlet Gates
+
+| # | Gate | Tool | Quick | Command |
+|---|------|------|-------|---------|
+| 1 | FORMAT | ruff format --check | yes | `make format` |
+| 2 | LINT | ruff check (50+ rules) | yes | `make lint` |
+| 3 | TYPECHECK | mypy | yes | `make typecheck` |
+| 4 | SECURITY | bandit | yes | — |
+| 5 | ARCH | scripts/check_architecture.py | yes | `make arch-check` |
+| 6 | FILELENGTH | scripts/check_file_length.py (400 lines) | yes | `make filelength-check` |
+| 7 | TEST | pytest + coverage | yes | `make test` |
+| 8 | MUTATION | mutmut | no | — |
+| 9 | AUDIT | pip-audit | no | — |
+| 10 | INSTALL | pip install -e . | yes | — |
+
+```bash
+make gauntlet-quick      # quick gates (skip mutation + audit)
+make gauntlet            # full gauntlet (all 10 gates)
+make gauntlet-gate GATE=lint  # single gate
+```

@@ -1,4 +1,5 @@
 """Rules command: generate/update AI agent configuration files."""
+# ruff: noqa: E501  — template strings contain long lines by design
 
 from __future__ import annotations
 
@@ -200,11 +201,19 @@ def _claude_rules(project: DetectedProject) -> str:
             "- **Migrations**: ALWAYS run `cd backend && uv run python manage.py makemigrations "
             "&& uv run python manage.py migrate` after model changes."
         )
-    lines.append("- **Type safety**: ALWAYS use type hints on every Python function. ALWAYS use strict TypeScript.")
+    lines.append(
+        "- **Type safety**: ALWAYS use type hints on every Python function. ALWAYS use strict TypeScript."
+    )
     if project.is_fullstack:
-        lines.append("- **Testing**: Run `uv run pytest -v` in `backend/`. Run `bun run test` in `frontend/`.")
-        lines.append("- **Linting**: Run `uv run ruff check .` in `backend/`. Run `bun run lint` in `frontend/`.")
-        lines.append("- **Formatting**: Run `uv run ruff format .` in `backend/`. Run `bun run format` in `frontend/`.")
+        lines.append(
+            "- **Testing**: Run `uv run pytest -v` in `backend/`. Run `bun run test` in `frontend/`."
+        )
+        lines.append(
+            "- **Linting**: Run `uv run ruff check .` in `backend/`. Run `bun run lint` in `frontend/`."
+        )
+        lines.append(
+            "- **Formatting**: Run `uv run ruff format .` in `backend/`. Run `bun run format` in `frontend/`."
+        )
     elif project.has_backend:
         lines.append("- **Testing**: Run `uv run pytest -v` in `backend/`.")
         lines.append("- **Linting**: Run `uv run ruff check .` in `backend/`.")
@@ -235,28 +244,34 @@ def _claude_commands(project: DetectedProject) -> str:
     dev_desc = (
         "Start all dev servers (docker + backend + frontend)"
         if project.is_fullstack
-        else "Start dev servers (docker + backend)" if project.has_backend else "Start frontend dev server"
+        else "Start dev servers (docker + backend)"
+        if project.has_backend
+        else "Start frontend dev server"
     )
     test_desc = "Run all tests (backend + frontend)" if project.is_fullstack else "Run tests"
-    lines.extend([
-        f"mattstack dev          # {dev_desc}",
-        f"mattstack test         # {test_desc}",
-        "mattstack lint         # Lint all code",
-        "mattstack lint --fix   # Auto-fix lint issues",
-        "mattstack env check    # Verify .env files are in sync",
-        "mattstack audit        # Run static analysis",
-        "```",
-    ])
+    lines.extend(
+        [
+            f"mattstack dev          # {dev_desc}",
+            f"mattstack test         # {test_desc}",
+            "mattstack lint         # Lint all code",
+            "mattstack lint --fix   # Auto-fix lint issues",
+            "mattstack env check    # Verify .env files are in sync",
+            "mattstack audit        # Run static analysis",
+            "```",
+        ]
+    )
     return "\n".join(lines)
 
 
 def _claude_ports(project: DetectedProject) -> str:
     rows: list[tuple[str, str, str]] = []
     if project.has_backend:
-        rows.extend([
-            ("Django API", "8000", "http://localhost:8000"),
-            ("PostgreSQL", "5432", "—"),
-        ])
+        rows.extend(
+            [
+                ("Django API", "8000", "http://localhost:8000"),
+                ("PostgreSQL", "5432", "—"),
+            ]
+        )
         if project.use_redis:
             rows.append(("Redis", "6379", "—"))
         rows.append(("API Docs", "8000", "http://localhost:8000/api/docs"))
@@ -364,34 +379,42 @@ def generate_cursorrules_from_detected(project: DetectedProject) -> str:
     ]
     if project.has_backend:
         lines.append("- Docker Compose for infrastructure: `docker compose up -d`")
-    lines.extend([
-        "- Use `mattstack dev` to start all services",
-        "- Use `mattstack test` to run tests",
-        "- Use `mattstack lint` to lint code",
-        "- Use `mattstack audit` for static analysis",
-        "",
-    ])
+    lines.extend(
+        [
+            "- Use `mattstack dev` to start all services",
+            "- Use `mattstack test` to run tests",
+            "- Use `mattstack lint` to lint code",
+            "- Use `mattstack audit` for static analysis",
+            "",
+        ]
+    )
     if project.has_backend:
-        lines.extend([
-            "## Backend",
-            "- django-ninja for API (Pydantic models, type-safe)",
-            "- NEVER use Django REST Framework serializers",
-            "- Run migrations after model changes: `cd backend && uv run python manage.py makemigrations && uv run python manage.py migrate`",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Backend",
+                "- django-ninja for API (Pydantic models, type-safe)",
+                "- NEVER use Django REST Framework serializers",
+                "- Run migrations after model changes: `cd backend && uv run python manage.py makemigrations && uv run python manage.py migrate`",
+                "",
+            ]
+        )
     if project.has_frontend:
-        lines.extend([
-            "## Frontend",
-            "- TypeScript strict mode",
-            "- Use `bun run dev` for development",
+        lines.extend(
+            [
+                "## Frontend",
+                "- TypeScript strict mode",
+                "- Use `bun run dev` for development",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "## Code Style",
+            "- Type hints on every Python function",
+            "- Strict TypeScript",
             "",
-        ])
-    lines.extend([
-        "## Code Style",
-        "- Type hints on every Python function",
-        "- Strict TypeScript",
-        "",
-    ])
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -411,16 +434,20 @@ def run_rules(
 
     files_to_write: list[tuple[Path, str, str]] = []
 
-    files_to_write.append((
-        path / "CLAUDE.md",
-        generate_claude_md_from_detected(project),
-        "AI agent context (Claude Code, Cursor)",
-    ))
-    files_to_write.append((
-        path / ".cursorrules",
-        generate_cursorrules_from_detected(project),
-        "Cursor IDE agent rules",
-    ))
+    files_to_write.append(
+        (
+            path / "CLAUDE.md",
+            generate_claude_md_from_detected(project),
+            "AI agent context (Claude Code, Cursor)",
+        )
+    )
+    files_to_write.append(
+        (
+            path / ".cursorrules",
+            generate_cursorrules_from_detected(project),
+            "Cursor IDE agent rules",
+        )
+    )
 
     if gsd:
         from mattstack.templates.gsd_project import (
@@ -430,27 +457,33 @@ def run_rules(
         )
 
         planning_dir = path / ".planning"
-        files_to_write.append((
-            planning_dir / "PROJECT.md",
-            generate_gsd_project_md_from_detected(project),
-            "GSD project definition",
-        ))
-        files_to_write.append((
-            planning_dir / "STATE.md",
-            generate_gsd_state_md_from_detected(project),
-            "GSD project state",
-        ))
-        files_to_write.append((
-            planning_dir / "config.json",
-            generate_gsd_config_json_static(),
-            "GSD configuration",
-        ))
+        files_to_write.append(
+            (
+                planning_dir / "PROJECT.md",
+                generate_gsd_project_md_from_detected(project),
+                "GSD project definition",
+            )
+        )
+        files_to_write.append(
+            (
+                planning_dir / "STATE.md",
+                generate_gsd_state_md_from_detected(project),
+                "GSD project state",
+            )
+        )
+        files_to_write.append(
+            (
+                planning_dir / "config.json",
+                generate_gsd_config_json_static(),
+                "GSD configuration",
+            )
+        )
 
     if dry_run:
         console.print()
         console.print("[bold cyan]mattstack rules --dry-run[/bold cyan]")
         console.print()
-        for file_path, content, desc in files_to_write:
+        for file_path, _, desc in files_to_write:
             rel = file_path.relative_to(path)
             status = "overwrite" if file_path.exists() else "create"
             console.print(f"  [{status}] {rel} — {desc}")
@@ -460,7 +493,7 @@ def run_rules(
     console.print("[bold cyan]mattstack rules[/bold cyan]")
     console.print()
 
-    for file_path, content, desc in files_to_write:
+    for file_path, content, _desc in files_to_write:
         rel = file_path.relative_to(path)
         if file_path.exists() and not force:
             print_info(f"Skipping {rel} (exists, use --force to overwrite)")

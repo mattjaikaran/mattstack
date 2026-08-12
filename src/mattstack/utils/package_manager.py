@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 
-class PackageManager(str, Enum):
+class PackageManager(StrEnum):
     BUN = "bun"
     NPM = "npm"
     YARN = "yarn"
@@ -62,7 +62,7 @@ def _get_user_pm_override() -> PackageManager | None:
         from mattstack.user_config import load_user_config
 
         config = load_user_config()
-        pm_value = config.get("defaults", {}).get("package_manager")
+        pm_value = config.get("defaults", {}).get("package_manager")  # type: ignore
         if pm_value and isinstance(pm_value, str):
             return PackageManager(pm_value)
     except (ValueError, ImportError):

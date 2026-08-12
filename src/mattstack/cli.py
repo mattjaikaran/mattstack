@@ -116,7 +116,8 @@ def add(
         typer.Option(
             "--framework",
             "-f",
-            help="Frontend framework: react-vite, react-vite-starter, react-rsbuild, react-rsbuild-kibo, nextjs",
+            help="Frontend framework: react-vite, react-vite-starter, react-rsbuild,"
+            " react-rsbuild-kibo, nextjs",
         ),
     ] = None,
     dry_run: Annotated[
@@ -266,7 +267,7 @@ def config_cmd(
             console.print("[dim]Create one with: mattstack config init[/dim]")
             console.print(f"[dim]Expected path: {USER_CONFIG_PATH}[/dim]")
         else:
-            import yaml as _yaml
+            import yaml as _yaml  # type: ignore[import-untyped]
 
             console.print(f"[bold cyan]Config:[/bold cyan] {USER_CONFIG_PATH}\n")
             console.print(_yaml.dump(config, default_flow_style=False))
@@ -420,7 +421,6 @@ def rules(
     run_rules(path=path or Path.cwd(), gsd=gsd, dry_run=dry_run, force=force)
 
 
-
 @app.command()
 def version() -> None:
     """Show mattstack version."""
@@ -431,12 +431,8 @@ def version() -> None:
 
 @app.command()
 def completions(
-    install: Annotated[
-        bool, typer.Option("--install", help="Install shell completions")
-    ] = False,
-    show: Annotated[
-        bool, typer.Option("--show", help="Show completion script")
-    ] = False,
+    install: Annotated[bool, typer.Option("--install", help="Install shell completions")] = False,
+    show: Annotated[bool, typer.Option("--show", help="Show completion script")] = False,
 ) -> None:
     """Manage shell completions (bash/zsh/fish)."""
     from mattstack.commands.completions import run_completions
