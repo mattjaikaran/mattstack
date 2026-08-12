@@ -87,9 +87,12 @@ setup: ## Install frontend dependencies
 
 def _docker_targets(config: ProjectConfig) -> str:
     return """
-.PHONY: up down logs restart
+.PHONY: up up-celery down logs restart
 up: ## Start all services (Docker)
 \tdocker compose up -d
+
+up-celery: ## Start all services + Celery workers
+\tdocker compose --profile celery up -d
 
 down: ## Stop all services
 \tdocker compose down
@@ -295,8 +298,8 @@ def _prod_targets() -> str:
 prod-build: ## Build production images
 \tdocker compose -f docker-compose.prod.yml build
 
-prod-up: ## Start production
-\tdocker compose -f docker-compose.prod.yml up -d
+prod-up: ## Start production (uses .env.production)
+\tdocker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 
 prod-down: ## Stop production
 \tdocker compose -f docker-compose.prod.yml down"""

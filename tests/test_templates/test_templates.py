@@ -32,6 +32,13 @@ def test_makefile_frontend_only(frontend_only_config: ProjectConfig):
     assert "backend-dev:" not in content
 
 
+def test_makefile_has_docker_profiles(starter_fullstack_config: ProjectConfig):
+    content = generate_makefile(starter_fullstack_config)
+    assert "up-celery:" in content
+    assert "--profile celery" in content
+    assert "--env-file .env.production" in content
+
+
 def test_docker_compose_fullstack(starter_fullstack_config: ProjectConfig):
     content = generate_docker_compose(starter_fullstack_config)
     assert "db:" in content
