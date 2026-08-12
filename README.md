@@ -1,8 +1,9 @@
 # mattstack
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](CHANGELOG.md)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-786%20passing-brightgreen.svg)](#development)
+[![Tests](https://img.shields.io/badge/tests-806%20passing-brightgreen.svg)](#development)
 
 CLI to scaffold fullstack monorepos from battle-tested boilerplates, then generate features and audit for quality.
 
