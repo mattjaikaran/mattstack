@@ -26,3 +26,12 @@ def test_prod_compose_uses_relocated_dockerfiles(starter_fullstack_config: Proje
     assert "context: ." in content
     assert "dockerfile: docker/backend/Dockerfile" in content
     assert "dockerfile: docker/frontend/Dockerfile" in content
+
+
+def test_dev_compose_environment_is_mapping(
+    starter_fullstack_config: ProjectConfig,
+) -> None:
+    content = generate_docker_compose(starter_fullstack_config)
+    assert 'DEBUG: "true"' in content
+    assert "DEBUG=true" not in content
+    assert "DATABASE_URL: postgres://" in content

@@ -93,13 +93,13 @@ def _api_dev_service(config: ProjectConfig) -> str:
     )
 
     env_lines = [
-        "      DEBUG=true",
-        f"      DATABASE_URL=postgres://postgres:postgres@db:5432/{config.python_package_name}",
-        "      DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-change-me-in-production}",
+        '      DEBUG: "true"',
+        f"      DATABASE_URL: postgres://postgres:postgres@db:5432/{config.python_package_name}",
+        "      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-in-production}",
     ]
     if config.use_redis:
-        env_lines.append("      REDIS_URL=redis://redis:6379/0")
-    env_lines.append("      CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173")
+        env_lines.append("      REDIS_URL: redis://redis:6379/0")
+    env_lines.append("      CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173")
 
     env_block = "\n".join(env_lines)
 
