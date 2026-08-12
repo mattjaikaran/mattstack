@@ -7,6 +7,7 @@ from pathlib import Path
 
 from mattstack.config import ProjectConfig, ProjectType, Variant
 from mattstack.post_processors.b2b import print_b2b_instructions
+from mattstack.post_processors.consolidate import consolidate_backend, consolidate_frontend
 from mattstack.post_processors.customizer import customize_backend, customize_frontend
 from mattstack.post_processors.frontend_config import setup_frontend_monorepo
 
@@ -168,3 +169,138 @@ def test_customize_frontend_no_package_json_is_noop(tmp_path: Path) -> None:
     config.frontend_dir.mkdir(parents=True)
     # Should not raise when package.json doesn't exist
     customize_frontend(config)
+
+
+# --- consolidate_monorepo ---
+
+
+def _populate_backend_standalone(backend: Path) -> None:
+    backend.mkdir(parents=True, exist_ok=True)
+    for f in [
+        "Makefile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "docker-compose.single.yml",
+        ".env",
+        ".env.example",
+        ".env.development",
+        ".env.deploy.example",
+        "Dockerfile",
+        "Dockerfile.uv",
+        "README.md",
+        "CLAUDE.md",
+        ".cursorrules",
+        ".gitignore",
+        ".dockerignore",
+        ".pre-commit-config.yaml",
+        "CHANGELOG.md",
+    ]:
+        (backend / f).write_text("x")
+    for d in [
+        "cli",
+        "docker",
+        "deploy",
+        "nginx",
+        "env",
+        "media",
+        "files",
+        ".claude",
+        ".cursor",
+        ".vscode",
+        ".omp",
+        ".agents",
+        ".continue",
+        ".kiro",
+        ".windsurf",
+        ".tanstack",
+    ]:
+        (backend / d).mkdir(parents=True, exist_ok=True)
+    # Files that must be preserved
+    (backend / "pyproject.toml").write_text("[project]\n")
+    (backend / "manage.py").write_text("x")
+    (backend / "api").mkdir()
+    (backend / "core").mkdir()
+
+
+def _populate_frontend_standalone(frontend: Path) -> None:
+    frontend.mkdir(parents=True, exist_ok=True)
+    for f in [
+        "Makefile",
+        "docker-compose.yml",
+        "docker-compose.monorepo.yml",
+        ".env",
+        ".env.example",
+        "env.example",
+        "env.monorepo.example",
+        "Dockerfile",
+        "Dockerfile.dev",
+        "README.md",
+        "CLAUDE.md",
+        ".gitignore",
+        ".dockerignore",
+        "DEPLOYMENT.md",
+        "nginx.conf",
+    ]:
+        (frontend / f).write_text("x")
+    for d in ["nginx", "docs", "dist", ".claude", ".cursor", ".vscode", ".omp"]:
+        (frontend / d).mkdir(parents=True, exist_ok=True)
+    # Files that must be preserved
+    (frontend / "package.json").write_text('{"name": "test"}\n')
+    (frontend / "src").mkdir()
+    (frontend / "vite.config.ts").write_text("export default {}")
+    (frontend / "tsconfig.json").write_text("{}")
+    (frontend / "eslint.config.js").write_text("export default []")
+    (frontend / ".prettierrc").write_text("{}")
+
+
+def test_consolidate_backend_removes_standalone_files(tmp_path: Path) -> None:
+    config = _make_config(tmp_path)
+    _populate_backend_standalone(config.backend_dir)
+
+    consolidate_backend(config)
+
+    for f in ["Makefile", "docker-compose.yml", "docker-compose.prod.yml", ".env",
+              ".env.example", "Dockerfile", "Dockerfile.uv", "README.md", "CLAUDE.md",
+              ".gitignore", ".dockerignore", ".pre-commit-config.yaml"]:
+        assert not (config.backend_dir / f).exists(), f"{f} should be removed"
+    for d in ["cli", "docker", "deploy", "nginx", "env", "media", "files", ".claude"]:
+        assert not (config.backend_dir / d).exists(), f"{d}/ should be removed"
+    assert (config.backend_dir / "pyproject.toml").exists()
+    assert (config.backend_dir / "manage.py").exists()
+    assert (config.backend_dir / "api").exists()
+    assert (config.backend_dir / "core").exists()
+
+
+def test_consolidate_frontend_removes_standalone_files(tmp_path: Path) -> None:
+    config = _make_config(tmp_path)
+    _populate_frontend_standalone(config.frontend_dir)
+
+    consolidate_frontend(config)
+
+    for f in ["Makefile", "docker-compose.yml", ".env", ".env.example", "env.example",
+              "Dockerfile", "Dockerfile.dev", "README.md", "CLAUDE.md", ".gitignore",
+              ".dockerignore", "DEPLOYMENT.md", "nginx.conf"]:
+        assert not (config.frontend_dir / f).exists(), f"{f} should be removed"
+    for d in ["nginx", "docs", "dist", ".claude"]:
+        assert not (config.frontend_dir / d).exists(), f"{d}/ should be removed"
+    assert (config.frontend_dir / "package.json").exists()
+    assert (config.frontend_dir / "src").exists()
+    assert (config.frontend_dir / "vite.config.ts").exists()
+    assert (config.frontend_dir / "tsconfig.json").exists()
+    assert (config.frontend_dir / "eslint.config.js").exists()
+    assert (config.frontend_dir / ".prettierrc").exists()
+
+
+def test_consolidate_tolerates_missing_files(tmp_path: Path) -> None:
+    config = _make_config(tmp_path)
+    config.backend_dir.mkdir(parents=True, exist_ok=True)
+    config.frontend_dir.mkdir(parents=True, exist_ok=True)
+    (config.backend_dir / "pyproject.toml").write_text("[project]\n")
+    (config.frontend_dir / "package.json").write_text("{}")
+
+    # Should not raise when standalone files are absent
+    consolidate_backend(config)
+    consolidate_frontend(config)
+
+    assert (config.backend_dir / "pyproject.toml").exists()
+    assert (config.frontend_dir / "package.json").exists()
