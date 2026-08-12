@@ -28,6 +28,7 @@ def _register_subgroups() -> None:
     from mattstack.commands.deps import deps_app
     from mattstack.commands.generate import generate_app
     from mattstack.commands.hooks import hooks_app
+    from mattstack.commands.rules import rules_app
     from mattstack.commands.sync import sync_app
     from mattstack.commands.todo import todo_app
     app.add_typer(generate_app, name="generate")
@@ -37,6 +38,7 @@ def _register_subgroups() -> None:
     app.add_typer(hooks_app, name="hooks")
     app.add_typer(board_app, name="board")
     app.add_typer(todo_app, name="todo")
+    app.add_typer(rules_app, name="rules")
 
 
 _register_subgroups()
@@ -397,31 +399,6 @@ def env(
     from mattstack.commands.env import run_env
 
     run_env(action=action, path=path or Path.cwd())
-
-
-@app.command()
-def rules(
-    path: Annotated[
-        Path | None,
-        typer.Option("--path", "-p", help="Project path"),
-    ] = None,
-    gsd: Annotated[
-        bool,
-        typer.Option("--gsd", help="Also generate GSD planning files (.planning/)"),
-    ] = False,
-    dry_run: Annotated[
-        bool,
-        typer.Option("--dry-run", help="Preview what would be generated"),
-    ] = False,
-    force: Annotated[
-        bool,
-        typer.Option("--force", help="Overwrite existing files"),
-    ] = False,
-) -> None:
-    """Generate AI agent config files (CLAUDE.md, .cursorrules, GSD)."""
-    from mattstack.commands.rules import run_rules
-
-    run_rules(path=path or Path.cwd(), gsd=gsd, dry_run=dry_run, force=force)
 
 
 @app.command()
