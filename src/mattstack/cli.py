@@ -29,12 +29,14 @@ def _register_subgroups() -> None:
     from mattstack.commands.generate import generate_app
     from mattstack.commands.hooks import hooks_app
     from mattstack.commands.sync import sync_app
+    from mattstack.commands.todo import todo_app
     app.add_typer(generate_app, name="generate")
     app.add_typer(db_app, name="db")
     app.add_typer(sync_app, name="sync")
     app.add_typer(deps_app, name="deps")
     app.add_typer(hooks_app, name="hooks")
     app.add_typer(board_app, name="board")
+    app.add_typer(todo_app, name="todo")
 
 
 _register_subgroups()

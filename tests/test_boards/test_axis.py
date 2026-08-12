@@ -158,3 +158,24 @@ def test_factory_resolves_backends() -> None:
 def test_factory_rejects_unknown_backend() -> None:
     with pytest.raises(ValueError, match="Unknown board backend"):
         get_board_backend(BoardConfig(backend="bogus"))
+
+
+def test_sync_open_tasks_pushes_to_backend(tmp_path) -> None:
+    from mattstack.commands.board import sync_open_tasks
+
+    (tmp_path / "tasks").mkdir(parents=True)
+    (tmp_path / "tasks" / "todo.md").write_text(
+        "- [x] done\n- [ ] one\n- [ ] two\n", encoding="utf-8"
+    )
+
+    created: list[str] = []
+
+    class FakeBackend:
+        def create_task(self, title: str, project: str | None = None, **fields) -> dict:
+            created.append(title)
+            return {}
+
+    count = sync_open_tasks(FakeBackend(), tmp_path, "proj")
+
+    assert count == 2
+    assert created == ["one", "two"]

@@ -9,8 +9,9 @@ import typer
 
 from mattstack.boards import get_board_backend
 from mattstack.boards.base import BoardBackend
+from mattstack.commands.todo import read_open_tasks
 from mattstack.config_file import MattstackConfig, load_config
-from mattstack.utils.console import console, print_success
+from mattstack.utils.console import console, print_info, print_success
 
 board_app = typer.Typer(
     name="board",
@@ -23,6 +24,14 @@ board_app = typer.Typer(
 def _load_backend(path: Path) -> tuple[MattstackConfig, BoardBackend]:
     config = load_config(path / "mattstack.yml")
     return config, get_board_backend(config.board)
+
+
+def sync_open_tasks(backend: BoardBackend, path: Path, project: str) -> int:
+    """Push open tasks from tasks/todo.md into ``backend``. Returns the count."""
+    tasks = read_open_tasks(path)
+    for title in tasks:
+        backend.create_task(title, project=project)
+    return len(tasks)
 
 
 @board_app.command("create")
@@ -97,3 +106,20 @@ def link_pr(
     result = backend.link_pr(task_id, pr_url, pr_number=pr_number)
     print_success(f"Linked PR to task {task_id}")
     console.print_json(data=result)
+
+
+@board_app.command("sync")
+def sync(
+    project: Annotated[
+        str | None, typer.Option("--project", "-p", help="Board project")
+    ] = None,
+    path: Annotated[Path | None, typer.Option("--path", help="Project path")] = None,
+) -> None:
+    """Push open tasks from tasks/todo.md into the configured board."""
+    root = (path or Path.cwd()).resolve()
+    config, backend = _load_backend(root)
+    count = sync_open_tasks(backend, root, project or config.board.project_slug)
+    if count == 0:
+        print_info("No open tasks in tasks/todo.md")
+    else:
+        print_success(f"Synced {count} task(s) to the board")
