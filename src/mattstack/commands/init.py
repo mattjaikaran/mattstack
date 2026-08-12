@@ -20,6 +20,7 @@ from mattstack.generators.backend_only import BackendOnlyGenerator
 from mattstack.generators.frontend_only import FrontendOnlyGenerator
 from mattstack.generators.fullstack import FullstackGenerator
 from mattstack.presets import get_all_presets, get_preset
+from mattstack.templates.mattstack_yml import generate_mattstack_yml
 from mattstack.utils.console import console, print_error, print_success
 from mattstack.utils.git import get_git_user
 from mattstack.utils.yaml_config import load_config_file
@@ -313,10 +314,10 @@ def _generate(config: ProjectConfig) -> bool:
     else:
         print_error(f"Unknown project type: {config.project_type}")
         raise typer.Exit(code=1)
-
     success = generator.run()
 
     if success:
+        generator.write_file("mattstack.yml", generate_mattstack_yml())
         _print_next_steps(config)
 
     return success
