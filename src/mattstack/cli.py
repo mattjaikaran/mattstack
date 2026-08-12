@@ -591,5 +591,28 @@ def notify(
     )
 
 
+@app.command()
+def verify(
+    scope: Annotated[
+        bool, typer.Option("--scope", help="Enforce the declared plan scope")
+    ] = False,
+    scope_file: Annotated[
+        Path | None,
+        typer.Option("--scope-file", help="Scope file (default SCOPE.md)"),
+    ] = None,
+    path: Annotated[Path | None, typer.Option("--path", "-p", help="Project path")] = None,
+) -> None:
+    """Verify changed files stay within the declared plan scope."""
+    from mattstack.utils.console import print_error
+
+    if not scope:
+        print_error("Use --scope to enforce the plan scope")
+        raise typer.Exit(code=1)
+
+    from mattstack.commands.verify import run_verify
+
+    run_verify(path=path or Path.cwd(), scope_file=scope_file)
+
+
 if __name__ == "__main__":
     app()
