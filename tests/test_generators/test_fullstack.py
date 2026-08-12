@@ -72,6 +72,8 @@ def test_fullstack_generates_all_files(mock_clone, tmp_path: Path) -> None:
     assert (config.path / "docker-compose.yml").exists()
     assert (config.path / "README.md").exists()
     assert (config.path / ".gitignore").exists()
+    assert (config.path / ".env.production.example").exists()
+    assert (config.path / ".env.production").exists()
     assert (config.path / "tasks" / "todo.md").exists()
 
 

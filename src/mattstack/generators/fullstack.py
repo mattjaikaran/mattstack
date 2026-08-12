@@ -22,7 +22,7 @@ from mattstack.templates.dockerfiles import (
 )
 from mattstack.templates.pre_commit_config import generate_pre_commit_config
 from mattstack.templates.root_claude_md import generate_claude_md
-from mattstack.templates.root_env import generate_env_example
+from mattstack.templates.root_env import generate_env_example, generate_env_production_example
 from mattstack.templates.root_gitignore import generate_gitignore
 from mattstack.templates.root_makefile import generate_makefile
 from mattstack.templates.root_readme import generate_readme
@@ -85,6 +85,8 @@ class FullstackGenerator(BaseGenerator):
             )
             self.write_file(".env.example", generate_env_example(self.config))
             self.write_file(".env", generate_env_example(self.config))
+            self.write_file(".env.production.example", generate_env_production_example(self.config))
+            self.write_file(".env.production", generate_env_production_example(self.config))
             self.write_file("README.md", generate_readme(self.config))
             self.write_file("CLAUDE.md", generate_claude_md(self.config))
             self.write_file(".cursorrules", generate_cursorrules(self.config))

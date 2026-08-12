@@ -46,6 +46,7 @@ def test_backend_generates_files(mock_clone, tmp_path: Path) -> None:
     result = gen.run()
     assert result is True
     assert config.path.exists()
+    assert (config.path / ".env.production.example").exists()
     assert (config.path / "Makefile").exists()
     assert (config.path / "docker-compose.yml").exists()
     assert (config.path / "README.md").exists()

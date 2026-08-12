@@ -28,6 +28,7 @@ def _general() -> str:
 # General
 .DS_Store
 .env
+.env.production
 *.log
 .vscode/
 .idea/

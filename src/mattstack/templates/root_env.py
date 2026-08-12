@@ -107,3 +107,102 @@ def generate_env_example(config: ProjectConfig) -> str:
     )
 
     return "\n".join(lines) + "\n"
+
+
+def generate_env_production_example(config: ProjectConfig) -> str:
+    """Generate .env.production.example with production values."""
+    lines: list[str] = [f"# Project: {config.display_name} (production)", ""]
+    api_port = config.backend_api_port
+    origin = "https://your-domain.com"
+
+    if config.has_backend:
+        if config.is_nestjs_backend:
+            lines.extend(
+                [
+                    "# === Backend (NestJS) ===",
+                    "NODE_ENV=production",
+                    f"PORT={api_port}",
+                    f"APP_NAME={config.display_name}",
+                    f"APP_URL={origin}",
+                    "",
+                    f"POSTGRES_DB={config.python_package_name}",
+                    "POSTGRES_USER=postgres",
+                    "POSTGRES_PASSWORD=change-me-strong-password",
+                    f"DATABASE_URL=postgresql://postgres:change-me-strong-password@db:5432/{config.python_package_name}",
+                    "",
+                    "JWT_SECRET=change-me-jwt-secret-at-least-32-chars",
+                    "JWT_REFRESH_SECRET=change-me-refresh-secret-at-least-32-chars",
+                    "",
+                    f"CORS_ORIGINS={origin}",
+                    "",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    "# === Backend (Django) ===",
+                    "DEBUG=false",
+                    "DJANGO_SECRET_KEY=change-me-strong-secret-key",
+                    f"POSTGRES_DB={config.python_package_name}",
+                    "POSTGRES_USER=postgres",
+                    "POSTGRES_PASSWORD=change-me-strong-password",
+                    f"DATABASE_URL=postgres://postgres:change-me-strong-password@db:5432/{config.python_package_name}",
+                    f"ALLOWED_HOSTS={origin.removeprefix('https://')}",
+                    f"CORS_ALLOWED_ORIGINS={origin}",
+                    "",
+                ]
+            )
+
+        if config.use_redis:
+            lines.extend(
+                [
+                    "# Redis",
+                    "REDIS_URL=redis://redis:6379/0",
+                    "",
+                ]
+            )
+
+        if config.use_celery:
+            lines.extend(
+                [
+                    "# Celery",
+                    "CELERY_BROKER_URL=redis://redis:6379/0",
+                    "CELERY_RESULT_BACKEND=redis://redis:6379/0",
+                    "",
+                ]
+            )
+
+    if config.has_frontend:
+        api_base = f"{origin}/api/v1"
+        if config.is_nextjs:
+            lines.extend(
+                [
+                    "# === Frontend (Next.js) ===",
+                    f"NEXT_PUBLIC_API_BASE_URL={api_base}",
+                    "NEXT_PUBLIC_AUTH_TOKEN_KEY=access_token",
+                    "NEXT_PUBLIC_REFRESH_TOKEN_KEY=refresh_token",
+                    "",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    "# === Frontend ===",
+                    f"VITE_API_BASE_URL={api_base}",
+                    "VITE_AUTH_TOKEN_KEY=access_token",
+                    "VITE_REFRESH_TOKEN_KEY=refresh_token",
+                    "",
+                ]
+            )
+
+    lines.extend(
+        [
+            "# === Ports ===",
+            f"API_PORT={api_port}",
+            "FRONTEND_PORT=80",
+            "DB_PORT=5432",
+            "REDIS_PORT=6379",
+        ]
+    )
+
+    return "\n".join(lines) + "\n"
