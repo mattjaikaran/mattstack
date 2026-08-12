@@ -23,17 +23,18 @@ app.add_typer(context_app, name="context")
 
 def _register_subgroups() -> None:
     """Lazily register subcommand groups to avoid import-time overhead."""
+    from mattstack.commands.board import board_app
     from mattstack.commands.db import db_app
     from mattstack.commands.deps import deps_app
     from mattstack.commands.generate import generate_app
     from mattstack.commands.hooks import hooks_app
     from mattstack.commands.sync import sync_app
-
     app.add_typer(generate_app, name="generate")
     app.add_typer(db_app, name="db")
     app.add_typer(sync_app, name="sync")
     app.add_typer(deps_app, name="deps")
     app.add_typer(hooks_app, name="hooks")
+    app.add_typer(board_app, name="board")
 
 
 _register_subgroups()
