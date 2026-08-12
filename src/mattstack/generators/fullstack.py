@@ -7,12 +7,19 @@ from collections.abc import Callable
 from mattstack.config import DeploymentTarget
 from mattstack.generators.base import BaseGenerator
 from mattstack.post_processors.b2b import print_b2b_instructions
+from mattstack.post_processors.consolidate import consolidate_backend, consolidate_frontend
 from mattstack.post_processors.customizer import customize_backend, customize_frontend
 from mattstack.post_processors.frontend_config import setup_frontend_monorepo
 from mattstack.templates.cursorrules import generate_cursorrules
 from mattstack.templates.docker_compose import generate_docker_compose
 from mattstack.templates.docker_compose_override import generate_docker_compose_override
 from mattstack.templates.docker_compose_prod import generate_docker_compose_prod
+from mattstack.templates.dockerfiles import (
+    generate_backend_dockerfile,
+    generate_frontend_dev_dockerfile,
+    generate_frontend_dockerfile,
+    generate_frontend_nginx_conf,
+)
 from mattstack.templates.pre_commit_config import generate_pre_commit_config
 from mattstack.templates.root_claude_md import generate_claude_md
 from mattstack.templates.root_env import generate_env_example
@@ -31,6 +38,7 @@ class FullstackGenerator(BaseGenerator):
             ("Creating project directory", self._step_create_dir),
             ("Cloning backend", self._step_clone_backend),
             ("Cloning frontend", self._step_clone_frontend),
+            ("Consolidating monorepo", self._step_consolidate),
             ("Creating root files", self._step_create_root_files),
             ("Writing pre-commit config", self._write_pre_commit_config),
             ("Customizing backend", self._step_customize_backend),
@@ -57,6 +65,15 @@ class FullstackGenerator(BaseGenerator):
     def _step_clone_ios(self) -> bool:
         return self.clone_and_strip("swift-ios", "ios")
 
+    def _step_consolidate(self) -> bool:
+        try:
+            consolidate_backend(self.config)
+            consolidate_frontend(self.config)
+            return True
+        except OSError as e:
+            print_error(f"Failed to consolidate monorepo: {e}")
+            return False
+
     def _step_create_root_files(self) -> bool:
         try:
             self.write_file("Makefile", generate_makefile(self.config))
@@ -73,6 +90,20 @@ class FullstackGenerator(BaseGenerator):
             self.write_file(".cursorrules", generate_cursorrules(self.config))
             self.write_file(".gitignore", generate_gitignore(self.config))
             self.write_file("tasks/todo.md", f"# {self.config.display_name} TODO\n")
+            # Consolidated Dockerfiles (build context = repo root)
+            if self.config.has_backend:
+                self.write_file(
+                    "docker/backend/Dockerfile", generate_backend_dockerfile(self.config)
+                )
+            if self.config.has_frontend:
+                self.write_file(
+                    "docker/frontend/Dockerfile", generate_frontend_dockerfile(self.config)
+                )
+                self.write_file(
+                    "docker/frontend/Dockerfile.dev", generate_frontend_dev_dockerfile(self.config)
+                )
+                if not self.config.is_nextjs:
+                    self.write_file("docker/frontend/nginx.conf", generate_frontend_nginx_conf())
 
             # Deployment configs
             if self.config.deployment == DeploymentTarget.RAILWAY:

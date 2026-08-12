@@ -25,6 +25,17 @@ def _mock_clone(url: str, dest: Path, branch: str = "main", depth: int = 1) -> b
     dest.mkdir(parents=True, exist_ok=True)
     (dest / "pyproject.toml").write_text("[project]\nname = 'test'\n")
     (dest / "manage.py").write_text("#!/usr/bin/env python\n")
+    for f in [
+        "Makefile",
+        "docker-compose.yml",
+        ".env",
+        "Dockerfile",
+        "README.md",
+        "CLAUDE.md",
+        ".gitignore",
+        ".dockerignore",
+    ]:
+        (dest / f).write_text("x")
     return True
 
 
@@ -38,6 +49,27 @@ def test_backend_generates_files(mock_clone, tmp_path: Path) -> None:
     assert (config.path / "Makefile").exists()
     assert (config.path / "docker-compose.yml").exists()
     assert (config.path / "README.md").exists()
+
+
+@patch("mattstack.generators.base.clone_repo", side_effect=_mock_clone)
+def test_backend_consolidates_boilerplate_files(mock_clone, tmp_path: Path) -> None:
+    config = _make_config(tmp_path)
+    gen = BackendOnlyGenerator(config)
+    result = gen.run()
+    assert result is True
+    for f in [
+        "Makefile",
+        "docker-compose.yml",
+        ".env",
+        "Dockerfile",
+        "README.md",
+        "CLAUDE.md",
+        ".gitignore",
+    ]:
+        assert not (config.backend_dir / f).exists(), f"{f} should be removed"
+    assert (config.backend_dir / "pyproject.toml").exists()
+    assert (config.backend_dir / "manage.py").exists()
+    assert (config.path / "docker" / "backend" / "Dockerfile").exists()
 
 
 @patch("mattstack.generators.base.clone_repo", return_value=False)
