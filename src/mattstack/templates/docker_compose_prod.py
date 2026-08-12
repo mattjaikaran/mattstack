@@ -86,8 +86,9 @@ def _api_service(config: ProjectConfig) -> str:
     return f"""\
   api:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/backend/Dockerfile
+      target: production
     ports:
       - "${{API_PORT:-8000}}:8000"
     environment:
@@ -105,9 +106,10 @@ def _celery_worker_service(config: ProjectConfig) -> str:
     return f"""\
   celery-worker:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
-    command: uv run celery -A {config.python_package_name} worker -l warning --concurrency=4
+      context: .
+      dockerfile: docker/backend/Dockerfile
+      target: production
+    command: celery -A {config.python_package_name} worker -l warning --concurrency=4
     environment:
       DATABASE_URL: postgres://${{POSTGRES_USER:-postgres}}:${{POSTGRES_PASSWORD}}@db:5432/{config.python_package_name}
       REDIS_URL: redis://redis:6379/0
@@ -123,9 +125,10 @@ def _celery_beat_service(config: ProjectConfig) -> str:
     return f"""\
   celery-beat:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
-    command: uv run celery -A {config.python_package_name} beat -l warning
+      context: .
+      dockerfile: docker/backend/Dockerfile
+      target: production
+    command: celery -A {config.python_package_name} beat -l warning
     environment:
       DATABASE_URL: postgres://${{POSTGRES_USER:-postgres}}:${{POSTGRES_PASSWORD}}@db:5432/{config.python_package_name}
       REDIS_URL: redis://redis:6379/0
@@ -141,8 +144,8 @@ def _frontend_service(config: ProjectConfig) -> str:
     lines = [
         "  frontend:",
         "    build:",
-        "      context: ./frontend",
-        "      dockerfile: Dockerfile",
+        "      context: .",
+        "      dockerfile: docker/frontend/Dockerfile",
         "    ports:",
         '      - "${FRONTEND_PORT:-3000}:80"',
     ]

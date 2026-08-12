@@ -107,8 +107,9 @@ def _api_dev_service(config: ProjectConfig) -> str:
     return f"""\
   api-dev:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/backend/Dockerfile
+      target: development
     command: uv run python manage.py runserver 0.0.0.0:{port}
     ports:
       - "${{API_PORT:-{port}}}:{port}"
@@ -126,8 +127,8 @@ def _nestjs_api_dev_service(config: ProjectConfig) -> str:
     return f"""\
   api-dev:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/backend/Dockerfile
       target: development
     command: sh -c "bun run db:migrate && bun run start:dev"
     ports:
@@ -155,8 +156,9 @@ def _fastapi_api_dev_service(config: ProjectConfig) -> str:
     return f"""\
   api-dev:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/backend/Dockerfile
+      target: development
     command: uv run uvicorn app.main:app --host 0.0.0.0 --port {port} --reload
     ports:
       - "${{API_PORT:-{port}}}:{port}"
@@ -179,8 +181,9 @@ def _celery_worker_service(config: ProjectConfig) -> str:
     return f"""\
   celery-worker:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/backend/Dockerfile
+      target: development
     command: uv run celery -A {config.python_package_name} worker -l info
     volumes:
       - ./backend:/app
@@ -200,8 +203,9 @@ def _celery_beat_service(config: ProjectConfig) -> str:
     return f"""\
   celery-beat:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/backend/Dockerfile
+      target: development
     command: uv run celery -A {config.python_package_name} beat -l info
     volumes:
       - ./backend:/app
@@ -235,8 +239,8 @@ def _frontend_dev_service(config: ProjectConfig) -> str:
         return f"""\
   frontend-dev:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/frontend/Dockerfile.dev
     command: bun run dev
     ports:
       - "${{FRONTEND_PORT:-3000}}:3000"
@@ -252,8 +256,8 @@ def _frontend_dev_service(config: ProjectConfig) -> str:
     return f"""\
   frontend-dev:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: docker/frontend/Dockerfile.dev
     command: bun run dev --host
     ports:
       - "${{FRONTEND_PORT:-3000}}:3000"
